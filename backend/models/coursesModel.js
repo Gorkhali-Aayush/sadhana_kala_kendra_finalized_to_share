@@ -1,0 +1,184 @@
+import db from "../config/db.js";
+
+class CoursesModel {
+    static async getAll() {
+        const [courses] = await db.query(`
+            SELECT c.*, t.full_name AS teacher_name
+            FROM Courses c
+            LEFT JOIN Teachers t ON c.teacher_id = t.teacher_id
+            ORDER BY c.created_at ASC
+        `);
+
+        const schedulePromises = courses.map(async (course) => {
+            const [schedules] = await db.query(
+                `SELECT cs.*, t.full_name AS teacher_name
+                 FROM Class_Schedule cs
+                 LEFT JOIN Teachers t ON cs.teacher_id = t.teacher_id
+                 WHERE cs.course_id = ?`,
+                [course.course_id]
+            );
+            course.schedules = schedules;
+        });
+
+        await Promise.all(schedulePromises);
+
+        return courses;
+    }
+
+    static async getById(course_id) {
+        const [rows] = await db.query(`
+            SELECT c.*, t.full_name AS teacher_name
+            FROM Courses c
+            LEFT JOIN Teachers t ON c.teacher_id = t.teacher_id
+            WHERE c.course_id = ?
+        `, [course_id]);
+
+        const course = rows[0];
+        if (!course) return null;
+
+        const [schedules] = await db.query(
+            `SELECT cs.*, t.full_name AS teacher_name
+             FROM Class_Schedule cs
+             LEFT JOIN Teachers t ON cs.teacher_id = t.teacher_id
+             WHERE cs.course_id = ?`,
+            [course_id]
+        );
+        course.schedules = schedules;
+        return course;
+    }
+
+    static async create({ title, description, level, teacher_name, image_url, schedules }) {
+        if (!title?.trim()) throw new Error("Course title is required");
+        
+        const connection = await db.getConnection(); // 🔧 Start transaction
+        try {
+            await connection.beginTransaction(); // 🔧 Begin transaction
+
+            const [teacherRows] = await connection.query(
+                `SELECT teacher_id FROM Teachers WHERE full_name = ?`,
+                [teacher_name]
+            );
+            const teacher_id = teacherRows[0]?.teacher_id || null;
+
+            const [result] = await connection.query(
+                `INSERT INTO Courses (course_name, description, level, teacher_id, image_url)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [title, description || null, level || null, teacher_id, image_url || null]
+            );
+
+            const course_id = result.insertId;
+
+            if (Array.isArray(schedules)) {
+                for (let s of schedules) {
+                    if (s.class_day && s.start_time && s.end_time) {
+                        let schedule_teacher_id = s.teacher_id || null;
+                        if (s.teacher_name && !s.teacher_id) {
+                            const [scheduleTeacherRows] = await connection.query(
+                                `SELECT teacher_id FROM Teachers WHERE full_name = ?`,
+                                [s.teacher_name]
+                            );
+                            schedule_teacher_id = scheduleTeacherRows[0]?.teacher_id || null;
+                        }
+
+                        await connection.query(
+                            `INSERT INTO Class_Schedule (course_id, teacher_id, class_day, start_time, end_time)
+                             VALUES (?, ?, ?, ?, ?)`,
+                            [course_id, schedule_teacher_id, s.class_day, s.start_time, s.end_time]
+                        );
+                    }
+                }
+            }
+
+            await connection.commit(); // 🔧 Commit transaction
+            return course_id;
+        } catch (err) {
+            await connection.rollback(); // 🔧 Rollback on error
+            throw err;
+        } finally {
+            connection.release(); // 🔧 Release connection
+        }
+    }
+
+    static async update(course_id, { title, description, level, teacher_name, image_url, schedules }) {
+        if (!course_id) throw new Error("Course ID is required for update.");
+        if (!title?.trim()) throw new Error("Course title is required");
+
+        const connection = await db.getConnection(); // 🔧 Start transaction
+        try {
+            await connection.beginTransaction(); // 🔧 Begin transaction
+
+            const [teacherRows] = await connection.query(
+                `SELECT teacher_id FROM Teachers WHERE full_name = ?`,
+                [teacher_name]
+            );
+            const teacher_id = teacherRows[0]?.teacher_id || null;
+
+            let oldImagePath = null;
+            let updateImageClause = '';
+            const params = [title, description || null, level || null, teacher_id];
+
+            if (image_url !== undefined) {
+                const [old] = await connection.query(`SELECT image_url FROM Courses WHERE course_id = ?`, [course_id]);
+                oldImagePath = old[0]?.image_url || null;
+                
+                updateImageClause = ', image_url = ?';
+                params.push(image_url);
+            }
+
+            params.push(course_id);
+
+            await connection.query(
+                `UPDATE Courses
+                 SET course_name = ?, description = ?, level = ?, teacher_id = ? ${updateImageClause}
+                 WHERE course_id = ?`,
+                params
+            );
+
+            await connection.query(`DELETE FROM Class_Schedule WHERE course_id = ?`, [course_id]);
+
+            if (Array.isArray(schedules)) {
+                for (let s of schedules) {
+                    if (s.class_day && s.start_time && s.end_time) {
+                        let schedule_teacher_id = s.teacher_id || null;
+                        if (s.teacher_name && !s.teacher_id) {
+                            const [scheduleTeacherRows] = await connection.query(
+                                `SELECT teacher_id FROM Teachers WHERE full_name = ?`,
+                                [s.teacher_name]
+                            );
+                            schedule_teacher_id = scheduleTeacherRows[0]?.teacher_id || null;
+                        }
+
+                        await connection.query(
+                            `INSERT INTO Class_Schedule (course_id, teacher_id, class_day, start_time, end_time)
+                             VALUES (?, ?, ?, ?, ?)`,
+                            [course_id, schedule_teacher_id, s.class_day, s.start_time, s.end_time]
+                        );
+                    }
+                }
+            }
+
+            await connection.commit(); // 🔧 Commit transaction
+            return oldImagePath;
+        } catch (err) {
+            await connection.rollback(); // 🔧 Rollback on error
+            throw err;
+        } finally {
+            connection.release(); // 🔧 Release connection
+        }
+    }
+
+    static async delete(course_id) {
+        if (!course_id) throw new Error("Course ID is required for deletion.");
+        
+        const [rows] = await db.query(`SELECT image_url FROM Courses WHERE course_id = ?`, [course_id]);
+        const imagePath = rows[0]?.image_url || null;
+
+        await db.query(`DELETE FROM Class_Schedule WHERE course_id = ?`, [course_id]);
+        
+        await db.query(`DELETE FROM Courses WHERE course_id = ?`, [course_id]);
+
+        return imagePath; 
+    }
+}
+
+export default CoursesModel;
