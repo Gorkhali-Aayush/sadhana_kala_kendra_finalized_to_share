@@ -12,7 +12,20 @@ This guide covers deploying the full-stack application (React frontend + Express
 
 ---
 
-## Part 1: Backend Deployment
+## Quick Start Checklist
+
+- [ ] Create MySQL database in cPanel
+- [ ] Import `backend/database/schema.sql` via phpMyAdmin
+- [ ] Upload backend files and create `.env`
+- [ ] Configure Node.js app in cPanel
+- [ ] Create admin user with `node createAdmin.js`
+- [ ] Build frontend with `npm run build`
+- [ ] Upload frontend `dist/` to `public_html`
+- [ ] Enable SSL
+
+---
+
+## Part 1: Database Setup
 
 ### Step 1: Create MySQL Database
 
@@ -23,7 +36,19 @@ This guide covers deploying the full-stack application (React frontend + Express
 5. Add the user to the database with **ALL PRIVILEGES**
 6. Note down: database name, username, password
 
-### Step 2: Upload Backend Files
+### Step 2: Import Database Schema
+
+1. Go to **phpMyAdmin** in cPanel
+2. Select your database
+3. Click **Import** tab
+4. Upload `backend/database/schema.sql`
+5. Click **Go** to import
+
+---
+
+## Part 2: Backend Deployment
+
+### Step 1: Upload Backend Files
 
 1. Go to **File Manager** in cPanel
 2. Navigate to a folder outside `public_html` (e.g., create `/home/youruser/nodejs_apps/sadhana-backend/`)
@@ -36,7 +61,7 @@ This guide covers deploying the full-stack application (React frontend + Express
    # Upload files via SFTP or git clone
    ```
 
-### Step 3: Create Environment File
+### Step 2: Create Environment File
 
 Create `.env` file in the backend folder:
 

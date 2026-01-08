@@ -27,13 +27,16 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
+      // Increase chunk size warning limit
+      chunkSizeWarningLimit: 1000,
     },
     server: {
       // Development proxy - only used in dev mode
       proxy: {
         "/api": {
-          target: env.VITE_API_BASE_URL?.replace('/api', '') || "http://localhost:5000",
+          target: "http://localhost:5001",
           changeOrigin: true,
+          secure: false,
         },
       },
     },

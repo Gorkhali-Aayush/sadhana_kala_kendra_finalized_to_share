@@ -75,14 +75,9 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, etc) in development
+      // Allow requests with no origin (mobile apps, curl, direct browser, etc)
       if (!origin) {
-        if (process.env.NODE_ENV === "production") {
-          // In production, be more strict - only allow if from allowed origins
-          callback(null, false);
-        } else {
-          callback(null, true);
-        }
+        callback(null, true);
         return;
       }
       if (allowedOrigins.includes(origin)) {
