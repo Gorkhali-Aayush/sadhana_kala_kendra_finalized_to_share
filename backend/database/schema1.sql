@@ -1,28 +1,23 @@
-CREATE DATABASE IF NOT EXISTS sadhana_kala_kendra CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- Database
+CREATE DATABASE IF NOT EXISTS sadhana_kala_kendra 
+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 USE sadhana_kala_kendra;
 
 
-CREATE TABLE IF NOT EXISTS Gallery (
-    media_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(100),
-    description TEXT,
-    media_type ENUM('Image', 'Video') DEFAULT 'Image',
-    file_url VARCHAR(255) NOT NULL,
-    category ENUM('Event', 'Course', 'Activity', 'General') DEFAULT 'General',
-    course_id INT,
-    upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES Courses(course_id)
-        ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Base Tables (No Dependencies)
 
 CREATE TABLE IF NOT EXISTS Teachers (
     teacher_id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     specialization VARCHAR(100),
     profile_image VARCHAR(255),
+    display_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_teachers_display_order (display_order)
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Students (
     student_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -33,7 +28,19 @@ CREATE TABLE IF NOT EXISTS Students (
     age INT,
     occupation VARCHAR(100),
     registered_date DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS admin_user (
+    admin_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_admin_username (username)
+) ENGINE=InnoDB;
+
+
+-- Dependent Tables (Level 1)
 
 CREATE TABLE IF NOT EXISTS Courses (
     course_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -47,12 +54,42 @@ CREATE TABLE IF NOT EXISTS Courses (
     seo_title VARCHAR(255),
     seo_description TEXT,
     seo_keywords VARCHAR(255),
+    display_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     INDEX idx_courses_slug (slug),
+    INDEX idx_courses_display_order (display_order),
+    INDEX idx_courses_teacher_id (teacher_id),
+    INDEX idx_courses_level (level),
+
     FOREIGN KEY (teacher_id) REFERENCES Teachers(teacher_id)
         ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;
+
+
+-- Dependent Tables (Level 2)
+
+CREATE TABLE IF NOT EXISTS Gallery (
+    media_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100),
+    description TEXT,
+    media_type ENUM('Image', 'Video') DEFAULT 'Image',
+    image_url VARCHAR(255),
+    file_url VARCHAR(255),
+    category ENUM('Event', 'Course', 'Activity', 'General') DEFAULT 'General',
+    course_id INT,
+    display_order INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_gallery_course_id (course_id),
+    INDEX idx_gallery_display_order (display_order),
+    INDEX idx_gallery_category (category),
+
+    FOREIGN KEY (course_id) REFERENCES Courses(course_id)
+        ON UPDATE CASCADE ON DELETE SET NULL
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Class_Schedule (
     schedule_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -61,11 +98,15 @@ CREATE TABLE IF NOT EXISTS Class_Schedule (
     class_day VARCHAR(50) NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
+
+    INDEX idx_class_schedule_course_id (course_id),
+    INDEX idx_class_schedule_teacher_id (teacher_id),
+
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
         ON UPDATE CASCADE ON DELETE CASCADE,
     FOREIGN KEY (teacher_id) REFERENCES Teachers(teacher_id)
         ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Registrations (
     registration_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -73,57 +114,12 @@ CREATE TABLE IF NOT EXISTS Registrations (
     course_id INT NOT NULL,
     registration_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(10) NOT NULL DEFAULT 'Unread',
+
     FOREIGN KEY (student_id) REFERENCES Students(student_id)
         ON UPDATE CASCADE ON DELETE CASCADE,
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
         ON UPDATE CASCADE ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS Events (
-    event_id INT AUTO_INCREMENT PRIMARY KEY,
-    event_name VARCHAR(100) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
-    category ENUM('upcoming', 'past') NOT NULL DEFAULT 'upcoming',
-    description TEXT,
-    event_date DATE,
-    event_time TIME,
-    venue VARCHAR(150),
-    organized_by VARCHAR(100),
-    seo_title VARCHAR(255),
-    seo_description TEXT,
-    seo_keywords VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_events_slug (slug)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS News (
-    news_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
-    rich_content LONGTEXT NULL,  -- Newly added column
-    news_date DATE,
-    image_url VARCHAR(500),
-    seo_title VARCHAR(255),
-    seo_description TEXT,
-    seo_keywords VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    INDEX idx_news_slug (slug),
-    INDEX idx_news_date (news_date)  -- Newly added index
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS News_Resources (
-    resource_id INT AUTO_INCREMENT PRIMARY KEY,
-    news_id INT NOT NULL,
-    resource_type ENUM('image', 'youtube') NOT NULL,
-    resource_url VARCHAR(1000) NOT NULL,
-    caption VARCHAR(255),
-    sort_order INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (news_id) REFERENCES News(news_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Offers (
     offer_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -134,7 +130,7 @@ CREATE TABLE IF NOT EXISTS Offers (
     description TEXT,
     image_url VARCHAR(500),
     discount_percentage DECIMAL(5,2) DEFAULT 0,
-    discount_type ENUM('percentage', 'fixed') NOT NULL DEFAULT 'percentage',
+    discount_type ENUM('percentage', 'fixed') DEFAULT 'percentage',
     cta_text VARCHAR(120),
     cta_link VARCHAR(500),
     valid_from DATE,
@@ -143,107 +139,151 @@ CREATE TABLE IF NOT EXISTS Offers (
     seo_description TEXT,
     seo_keywords VARCHAR(255),
     display_order INT DEFAULT 0,
-    is_active TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    is_active TINYINT UNSIGNED DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON UPDATE CASCADE ON DELETE SET NULL,
+
+    FOREIGN KEY (course_id) REFERENCES Courses(course_id)
+        ON UPDATE CASCADE ON DELETE SET NULL,
+
     INDEX idx_offers_slug (slug),
     INDEX idx_offers_course_id (course_id),
     INDEX idx_offers_active (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;
 
 
+-- Independent Content Tables
 
+CREATE TABLE IF NOT EXISTS Events (
+    event_id INT AUTO_INCREMENT PRIMARY KEY,
+    event_name VARCHAR(100) NOT NULL,
+    slug VARCHAR(255) UNIQUE,
+    category ENUM('upcoming', 'past') DEFAULT 'upcoming',
+    description TEXT,
+    event_date DATE,
+    event_time TIME,
+    venue VARCHAR(150),
+    organized_by VARCHAR(100),
+    seo_title VARCHAR(255),
+    seo_description TEXT,
+    seo_keywords VARCHAR(255),
+    display_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_events_slug (slug),
+    INDEX idx_events_display_order (display_order),
+    INDEX idx_events_event_date (event_date)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS News (
+    news_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE,
+    rich_content LONGTEXT,
+    news_date DATE,
+    image_url VARCHAR(500),
+    seo_title VARCHAR(255),
+    seo_description TEXT,
+    seo_keywords VARCHAR(255),
+    display_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_news_slug (slug),
+    INDEX idx_news_date (news_date),
+    INDEX idx_news_display_order (display_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS News_Resources (
+    resource_id INT AUTO_INCREMENT PRIMARY KEY,
+    news_id INT NOT NULL,
+    resource_type ENUM('image', 'youtube'),
+    resource_url VARCHAR(1000),
+    caption VARCHAR(255),
+    sort_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (news_id) REFERENCES News(news_id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- Other Content Tables
 
 CREATE TABLE IF NOT EXISTS activities (
-    activity_id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(255) NOT NULL,
+    activity_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255),
     description TEXT,
-    video_url VARCHAR(500) NOT NULL,
+    video_url VARCHAR(500),
+    display_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Artists (
     artist_id INT AUTO_INCREMENT PRIMARY KEY,
-    full_name VARCHAR(100) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
+    full_name VARCHAR(100),
+    slug VARCHAR(255) UNIQUE,
     bio TEXT,
     profile_image VARCHAR(255),
     seo_title VARCHAR(255),
     seo_description TEXT,
     seo_keywords VARCHAR(255),
+    display_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_artists_slug (slug)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    INDEX idx_artists_slug (slug),
+    INDEX idx_artists_display_order (display_order)
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS BOD (
     bod_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(100),
+    slug VARCHAR(255) UNIQUE,
     designation VARCHAR(100),
     bio TEXT,
-    details_content LONGTEXT NULL,  -- Newly added column
+    details_content LONGTEXT,
     profile_image VARCHAR(255),
     seo_title VARCHAR(255),
     seo_description TEXT,
     seo_keywords VARCHAR(255),
+    display_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     INDEX idx_bod_slug (slug),
-    INDEX idx_bod_updated_at (updated_at)  -- Newly added index
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+    INDEX idx_bod_updated_at (updated_at)
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Programs (
     program_id INT AUTO_INCREMENT PRIMARY KEY,
-    program_date DATE NOT NULL,
-    title VARCHAR(150) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
+    program_date DATE,
+    title VARCHAR(150),
+    slug VARCHAR(255) UNIQUE,
     description TEXT,
     image_url VARCHAR(255),
     seo_title VARCHAR(255),
     seo_description TEXT,
     seo_keywords VARCHAR(255),
+    display_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     INDEX idx_programs_slug (slug)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS Gallery (
-    media_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(100),
-    description TEXT,
-    media_type ENUM('Image', 'Video') DEFAULT 'Image',
-    file_url VARCHAR(255) NOT NULL,
-    category ENUM('Event', 'Course', 'Activity', 'General') DEFAULT 'General',
-    course_id INT,
-    upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES Courses(course_id)
-        ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS team_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(150) NOT NULL,
-    subtitle VARCHAR(200) NULL,
-    description TEXT NULL,
-    image_url VARCHAR(255) NULL,
+    name VARCHAR(150),
+    subtitle VARCHAR(200),
+    description TEXT,
+    image_url VARCHAR(255),
+    display_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS admin_user (
-    admin_id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Admin_Audit_Log (
     audit_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -253,4 +293,4 @@ CREATE TABLE IF NOT EXISTS Admin_Audit_Log (
     entity_id INT,
     ip_address VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB;

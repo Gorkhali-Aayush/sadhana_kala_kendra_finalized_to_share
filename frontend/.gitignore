@@ -1,110 +1,41 @@
-# =====================
-# DEPENDENCIES
-# =====================
+# Dependencies
 node_modules/
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-bun.lockb
 
-# =====================
-# BUILD OUTPUT
-# =====================
-dist/
-dist-ssr/
-build/
-.next/
-out/
-
-# =====================
-# LOGS & DEBUG
-# =====================
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# =====================
-# ENVIRONMENT VARIABLES
-# =====================
+# Root environment files
 .env
 .env.local
-.env.development
 .env.development.local
-.env.production
 .env.production.local
+
+# Backend env
+backend/.env
+backend/.env.local
+
+# Frontend env files (keep .env.example)
+frontend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/.env.development.local
+frontend/.env.production
+frontend/.env.production.local
 
 # Keep example files
 !.env.example
-!.env.production.example
-!.env.development.example
+!backend/.env.example
+!frontend/.env.example
 
-# =====================
-# CACHE & TEMPORARY
-# =====================
-.cache/
-.parcel-cache/
-*.local
-.vite/
-.turbo/
-coverage/
+# Logs
+logs/
+*.log
 
-# =====================
-# EDITOR & IDE
-# =====================
-.vscode/*
-!.vscode/extensions.json
-.vscode/settings.json
-.idea/
-.idea_modules/
-*.sublime-project
-*.sublime-workspace
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-.tern-port
+# Build output
+dist/
+build/
+
+# Editor / OS
 .DS_Store
-Thumbs.db
+.vscode/
 
-# =====================
-# OS SPECIFIC
-# =====================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
-
-# =====================
-# TESTING
-# =====================
-coverage/
-.nyc_output/
-
-# =====================
-# BUILD/COMPILE ARTIFACTS
-# =====================
-*.tsbuildinfo
-*.d.ts
-.eslintcache
-
-# =====================
-# TEMPORARY/MISC
-# =====================
-.tmp/
-tmp/
-temp/
-*.swp
-*.swo
-*~
-.npmrc
-.yarnrc
-.pnpmfile.cjs
+# Uploads (optional - keep folder structure)
+backend/uploads/*
+!backend/uploads/.gitkeep

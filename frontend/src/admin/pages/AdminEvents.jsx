@@ -26,6 +26,98 @@ const Alert = ({ message, type, onClose }) => (
   </div>
 );
 
+const OrderConflictDialog = ({ conflict, onResolve, onCancel }) => {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [customOrder, setCustomOrder] = useState("");
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in duration-300">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-start gap-3">
+          <div className="text-3xl">⚠️</div>
+          <div>
+            <h2 className="font-bold text-slate-900">Display Order Conflict</h2>
+            <p className="text-sm text-slate-600 mt-1">{conflict?.warning}</p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+            <p className="font-semibold mb-2">💡 Suggestion:</p>
+            <p>{conflict?.suggestion}</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === conflict?.nextAvailable}
+                onChange={() => {
+                  setSelectedOrder(conflict?.nextAvailable);
+                  setCustomOrder("");
+                }}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Use suggested order: {conflict?.nextAvailable}</span>
+                <p className="text-xs text-slate-500">Automatically assign the next available order</p>
+              </span>
+            </label>
+
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === "custom"}
+                onChange={() => setSelectedOrder("custom")}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Enter custom order:</span>
+                <input
+                  type="number"
+                  placeholder="Enter order number"
+                  value={customOrder}
+                  onChange={(e) => setCustomOrder(e.target.value)}
+                  onClick={() => setSelectedOrder("custom")}
+                  className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  min="1"
+                />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
+          <button
+            onClick={onCancel}
+            className="px-6 py-2.5 rounded-xl font-semibold text-slate-600 hover:bg-slate-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (selectedOrder === "custom") {
+                if (!customOrder || customOrder < 1) {
+                  alert("Please enter a valid order number");
+                  return;
+                }
+                onResolve(customOrder);
+              } else {
+                onResolve(selectedOrder);
+              }
+            }}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+          >
+            Proceed
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const formatEventDataForForm = (event) => ({
   event_id: event.event_id || null,
   event_name: event.event_name || "",
@@ -36,6 +128,7 @@ const formatEventDataForForm = (event) => ({
   venue: event.venue || "",
   organized_by: event.organized_by || "",
   category: event.category || "upcoming",
+  display_order: event.display_order || 0,
   seo_title: event.seo_title || "",
   seo_description: event.seo_description || "",
   seo_keywords: event.seo_keywords || "",
@@ -91,8 +184,12 @@ const EventForm = ({ event, onSubmit, onCancel, isSaving }) => {
             </div>
         </div>
 
-        <div>
-          <label className={labelStyle}>Venue / Location</label>
+        <div>          <label className={labelStyle}>Display Order <span className="text-slate-400 font-normal">(Leave blank for auto-assign)</span></label>
+          <input type="number" name="display_order" placeholder="e.g. 1, 2, 3..." value={formData.display_order} onChange={handleChange} min="1" className={inputStyle} />
+          <p className="text-xs text-slate-400 mt-2">Determines the order in which this event appears in listings.</p>
+        </div>
+
+        <div>          <label className={labelStyle}>Venue / Location</label>
           <input type="text" name="venue" value={formData.venue} onChange={handleChange} required className={inputStyle} placeholder="Grand Ballroom" />
         </div>
 
@@ -148,6 +245,8 @@ export default function AdminEvents() {
   const [message, setMessage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("upcoming");
+  const [orderConflict, setOrderConflict] = useState(null);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -176,6 +275,37 @@ export default function AdminEvents() {
         setMessage("New event scheduled successfully.");
       }
       setEditingEvent(null);
+      setOrderConflict(null);
+      setPendingFormData(null);
+      fetchData();
+    } catch (err) {
+      if (err?.response?.status === 409 && err?.response?.data?.warning) {
+        setOrderConflict(err.response.data);
+        setPendingFormData(formData);
+        setIsSaving(false);
+        return;
+      }
+      setError(err?.message || "An error occurred while saving.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResolveConflict = async (newOrder) => {
+    if (!pendingFormData) return;
+    setIsSaving(true);
+    setOrderConflict(null);
+    const { event_id, ...apiPayload } = { ...pendingFormData, display_order: newOrder };
+    try {
+      if (event_id) {
+        await updateEvent(event_id, apiPayload);
+        setMessage("Event successfully updated.");
+      } else {
+        await createEvent(apiPayload);
+        setMessage("New event scheduled successfully.");
+      }
+      setEditingEvent(null);
+      setPendingFormData(null);
       fetchData();
     } catch (err) {
       setError(err?.message || "An error occurred while saving.");
@@ -201,6 +331,17 @@ export default function AdminEvents() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-10 text-slate-900">
+      {/* Conflict Dialog */}
+      {orderConflict && (
+        <OrderConflictDialog
+          conflict={orderConflict}
+          onResolve={handleResolveConflict}
+          onCancel={() => {
+            setOrderConflict(null);
+            setPendingFormData(null);
+          }}
+        />
+      )}
       {/* HEADER SECTION */}
       <div className="bg-white border-b border-slate-200 mb-6 md:mb-10">
         <div className="container mx-auto px-4 sm:px-6 py-6 md:py-10">
@@ -257,6 +398,7 @@ export default function AdminEvents() {
                     <tr className="bg-slate-50/50 border-b border-slate-200">
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Event Detail</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Schedule & Venue</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Order</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                     </tr>
                   </thead>
@@ -274,6 +416,11 @@ export default function AdminEvents() {
                             </span>
                             <span className="text-[11px] md:text-xs text-slate-400 mt-0.5 font-medium">{event.event_time} • {event.venue}</span>
                           </div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                            {event.display_order || '—'}
+                          </span>
                         </td>
                         <td className="px-6 py-5 text-right">
                           <div className="flex justify-end gap-1.5">

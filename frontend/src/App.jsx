@@ -32,7 +32,7 @@ const RouteFallback = () => null;
 
 const AppContent = () => {
   const location = useLocation();
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isAdminRoute = location.pathname.startsWith("/server");
 
   useEffect(() => {
     // Keep page transitions consistent: always start at the top on route change.
@@ -70,7 +70,7 @@ const AppContent = () => {
             <Route path="/teachers" element={<Teachers />} />
 
             {/* Admin Routes */}
-            <Route path="/admin/*" element={<AdminRoutes />} />
+            <Route path="/server/*" element={<AdminRoutes />} />
 
             {/* Catch-all route for undefined pages (404) */}
             <Route path="*" element={<NotFound />} />

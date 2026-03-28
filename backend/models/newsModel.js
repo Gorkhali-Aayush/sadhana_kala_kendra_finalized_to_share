@@ -3,7 +3,7 @@ import db from "../config/db.js";
 class NewsModel {
   static async getAll() {
     const [rows] = await db.query(
-      `SELECT * FROM News ORDER BY news_date DESC, created_at DESC`
+      `SELECT * FROM News ORDER BY display_order ASC, news_date DESC, created_at DESC`
     );
     return rows;
   }
@@ -53,10 +53,10 @@ class NewsModel {
     }
   }
 
-  static async create({ title, slug, rich_content, news_date, image_url, seo_title, seo_description, seo_keywords }) {
+  static async create({ title, slug, rich_content, news_date, image_url, seo_title, seo_description, seo_keywords, display_order }) {
     const [result] = await db.query(
-      `INSERT INTO News (title, slug, rich_content, news_date, image_url, seo_title, seo_description, seo_keywords)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO News (title, slug, rich_content, news_date, image_url, seo_title, seo_description, seo_keywords, display_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         slug,
@@ -66,12 +66,13 @@ class NewsModel {
         seo_title || null,
         seo_description || null,
         seo_keywords || null,
+        display_order ?? 0,
       ]
     );
     return result.insertId;
   }
 
-  static async update(news_id, { title, slug, rich_content, news_date, image_url, seo_title, seo_description, seo_keywords }) {
+  static async update(news_id, { title, slug, rich_content, news_date, image_url, seo_title, seo_description, seo_keywords, display_order }) {
     const fields = [];
     const values = [];
 
@@ -106,6 +107,10 @@ class NewsModel {
     if (seo_keywords !== undefined) {
       fields.push("seo_keywords = ?");
       values.push(seo_keywords);
+    }
+    if (display_order !== undefined) {
+      fields.push("display_order = ?");
+      values.push(display_order);
     }
     if (fields.length === 0) return;
 

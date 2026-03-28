@@ -25,10 +25,8 @@ const Events = () => {
       let data;
       if (tab === "upcoming") {
         data = await getUpcomingEvents();
-        data.sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
       } else {
         data = await getPastEvents();
-        data.sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
       }
       setEvents(data);
     } catch (err) {
@@ -258,6 +256,9 @@ const Events = () => {
                     <p className="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-3 font-['Roboto']">
                       {item.content}
                     </p>
+                    <span className="mt-auto text-center text-sm font-bold text-indigo-700 group-hover:text-indigo-900 transition-colors">
+                      View Details
+                    </span>
                   </div>
                 </article>
               );

@@ -23,6 +23,101 @@ const Alert = ({ message, type, onClose }) => (
   </div>
 );
 
+/** * COMPONENT: OrderConflictDialog
+ * Handles display order conflicts with user-friendly options
+ */
+const OrderConflictDialog = ({ conflict, onResolve, onCancel }) => {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [customOrder, setCustomOrder] = useState("");
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in duration-300">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-start gap-3">
+          <div className="text-3xl">⚠️</div>
+          <div>
+            <h2 className="font-bold text-slate-900">Display Order Conflict</h2>
+            <p className="text-sm text-slate-600 mt-1">{conflict?.warning}</p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+            <p className="font-semibold mb-2">💡 Suggestion:</p>
+            <p>{conflict?.suggestion}</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === conflict?.nextAvailable}
+                onChange={() => {
+                  setSelectedOrder(conflict?.nextAvailable);
+                  setCustomOrder("");
+                }}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Use suggested order: {conflict?.nextAvailable}</span>
+                <p className="text-xs text-slate-500">Automatically assign the next available order</p>
+              </span>
+            </label>
+
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === "custom"}
+                onChange={() => setSelectedOrder("custom")}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Enter custom order:</span>
+                <input
+                  type="number"
+                  placeholder="Enter order number"
+                  value={customOrder}
+                  onChange={(e) => setCustomOrder(e.target.value)}
+                  onClick={() => setSelectedOrder("custom")}
+                  className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  min="1"
+                />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
+          <button
+            onClick={onCancel}
+            className="px-6 py-2.5 rounded-xl font-semibold text-slate-600 hover:bg-slate-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (selectedOrder === "custom") {
+                if (!customOrder || customOrder < 1) {
+                  alert("Please enter a valid order number");
+                  return;
+                }
+                onResolve(customOrder);
+              } else {
+                onResolve(selectedOrder);
+              }
+            }}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+          >
+            Proceed
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ScheduleManager = ({ schedules, setSchedules, mainTeacherName }) => {
   const days = [
     "Monday",
@@ -248,6 +343,7 @@ const CourseForm = ({ course, onSubmit, onCancel, isSaving, teachers }) => {
     level: course?.level || "",
     price: course?.price ?? "",
     teacher_name: course?.teacher_name || "",
+    display_order: course?.display_order || "",
     seo_title: course?.seo_title || "",
     seo_description: course?.seo_description || "",
     seo_keywords: course?.seo_keywords || "",
@@ -369,6 +465,20 @@ const CourseForm = ({ course, onSubmit, onCancel, isSaving, teachers }) => {
               className={inputClass}
               placeholder="5000"
             />
+          </div>
+
+          <div className="md:col-span-1">
+            <label className={labelClass}>Display Order <span className="text-slate-400 font-normal">(Optional)</span></label>
+            <input
+              type="number"
+              name="display_order"
+              placeholder="e.g. 1, 2, 3..."
+              value={formData.display_order}
+              onChange={handleChange}
+              min="1"
+              className={inputClass}
+            />
+            <p className="text-xs text-slate-400 mt-2">Determines the order in which this course appears in listings.</p>
           </div>
         </div>
 
@@ -614,6 +724,8 @@ export default function AdminCourses() {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [orderConflict, setOrderConflict] = useState(null);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   // Use centralized SERVER_ROOT_URL from api.js
   const SERVER_BASE_URL = SERVER_ROOT_URL;
@@ -655,10 +767,46 @@ export default function AdminCourses() {
       }
 
       setEditingCourse(null);
+      setOrderConflict(null);
+      setPendingFormData(null);
       await fetchData();
     } catch (err) {
+      // Check for display order conflict (409)
+      if (err?.response?.status === 409 && err?.response?.data?.warning) {
+        setOrderConflict(err.response.data);
+        setPendingFormData(formData);
+        setIsSaving(false);
+        return; // Don't set error, show dialog instead
+      }
       const errorMsg = err?.message || "An unknown error occurred.";
       setError(errorMsg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResolveConflict = async (newOrder) => {
+    if (!pendingFormData) return;
+    
+    setIsSaving(true);
+    setOrderConflict(null);
+    
+    try {
+      const updatedFormData = { ...pendingFormData, display_order: newOrder };
+      
+      if (editingCourse && editingCourse.course_id) {
+        await updateCourse(editingCourse.course_id, updatedFormData);
+        setMessage("Course updated successfully!");
+      } else {
+        await createCourse(updatedFormData);
+        setMessage("Course created successfully!");
+      }
+      
+      setEditingCourse(null);
+      setPendingFormData(null);
+      fetchData();
+    } catch (err) {
+      setError(err?.message || "Operation failed.");
     } finally {
       setIsSaving(false);
     }
@@ -711,6 +859,18 @@ export default function AdminCourses() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-10 text-slate-900">
+      {/* Conflict Dialog */}
+      {orderConflict && (
+        <OrderConflictDialog
+          conflict={orderConflict}
+          onResolve={handleResolveConflict}
+          onCancel={() => {
+            setOrderConflict(null);
+            setPendingFormData(null);
+          }}
+        />
+      )}
+
       {/* HEADER SECTION */}
       <div className="bg-white border-b border-slate-200 mb-6 md:mb-10">
         <div className="container mx-auto px-4 sm:px-6 py-6 md:py-10">
@@ -755,6 +915,7 @@ export default function AdminCourses() {
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Image</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Course Title, Level & Price</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Main Teacher</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Order</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Class Schedules</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                     </tr>
@@ -779,6 +940,11 @@ export default function AdminCourses() {
                           </span>
                         </td>
                         <td className="px-6 py-5 text-sm text-slate-700 font-medium">{course.teacher_name || "N/A"}</td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                            {course.display_order || '—'}
+                          </span>
+                        </td>
                         <td className="px-6 py-5 text-sm text-slate-500">
                           {course.schedules && course.schedules.length > 0 ? (
                             <div className="flex flex-wrap gap-2">

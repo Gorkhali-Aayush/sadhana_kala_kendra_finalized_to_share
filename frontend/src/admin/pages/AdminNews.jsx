@@ -20,6 +20,101 @@ const Alert = ({ message, type, onClose }) => (
   <div className={`flex items-start md:items-center justify-between p-4 mb-6 rounded-xl border animate-in fade-in slide-in-from-top-4 duration-300 ${type === "error" ? "bg-red-50 border-red-200 text-red-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}> <div className="flex items-center font-medium"><span className="shrink-0">{type === "error" ? "⚠️" : "✅"}</span> <span className="ml-3 text-sm md:text-base">{message}</span></div><button onClick={onClose} className="hover:opacity-70 transition-opacity text-xl leading-none ml-4">&times;</button></div>
 );
 
+/** * COMPONENT: OrderConflictDialog
+ * Handles display order conflicts with user-friendly options
+ */
+const OrderConflictDialog = ({ conflict, onResolve, onCancel }) => {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [customOrder, setCustomOrder] = useState("");
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in duration-300">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-start gap-3">
+          <div className="text-3xl">⚠️</div>
+          <div>
+            <h2 className="font-bold text-slate-900">Display Order Conflict</h2>
+            <p className="text-sm text-slate-600 mt-1">{conflict?.warning}</p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+            <p className="font-semibold mb-2">💡 Suggestion:</p>
+            <p>{conflict?.suggestion}</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === conflict?.nextAvailable}
+                onChange={() => {
+                  setSelectedOrder(conflict?.nextAvailable);
+                  setCustomOrder("");
+                }}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Use suggested order: {conflict?.nextAvailable}</span>
+                <p className="text-xs text-slate-500">Automatically assign the next available order</p>
+              </span>
+            </label>
+
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === "custom"}
+                onChange={() => setSelectedOrder("custom")}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Enter custom order:</span>
+                <input
+                  type="number"
+                  placeholder="Enter order number"
+                  value={customOrder}
+                  onChange={(e) => setCustomOrder(e.target.value)}
+                  onClick={() => setSelectedOrder("custom")}
+                  className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  min="1"
+                />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
+          <button
+            onClick={onCancel}
+            className="px-6 py-2.5 rounded-xl font-semibold text-slate-600 hover:bg-slate-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (selectedOrder === "custom") {
+                if (!customOrder || customOrder < 1) {
+                  alert("Please enter a valid order number");
+                  return;
+                }
+                onResolve(customOrder);
+              } else {
+                onResolve(selectedOrder);
+              }
+            }}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+          >
+            Proceed
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const formatNewsDataForForm = (news) => ({
   news_id: news.news_id || null,
   title: news.title || "",
@@ -27,6 +122,7 @@ const formatNewsDataForForm = (news) => ({
   rich_content: news.rich_content || "",
   news_date: news.news_date ? new Date(news.news_date).toISOString().split("T")[0] : "",
   image_url: news.image_url || "",
+  display_order: news.display_order || 0,
   seo_title: news.seo_title || "",
   seo_description: news.seo_description || "",
   seo_keywords: news.seo_keywords || "",
@@ -201,6 +297,11 @@ const NewsForm = ({ news, onSubmit, onCancel, isSaving }) => {
             <input type="text" name="slug" value={formData.slug} onChange={handleChange} className={inputStyle} placeholder="new-award-announced" />
           </div>
           <div>
+            <label className={labelStyle}>Display Order <span className="text-slate-400 font-normal">(Leave blank for auto-assign)</span></label>
+            <input type="number" name="display_order" placeholder="e.g. 1, 2, 3..." value={formData.display_order} onChange={handleChange} min="1" className={inputStyle} />
+            <p className="text-xs text-slate-400 mt-2">Determines the order in which this news appears in listings.</p>
+          </div>
+          <div>
             <label className={labelStyle}>Date</label>
             <input type="date" name="news_date" value={formData.news_date} onChange={handleChange} required className={inputStyle} />
           </div>
@@ -271,6 +372,8 @@ const NewsForm = ({ news, onSubmit, onCancel, isSaving }) => {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [orderConflict, setOrderConflict] = useState(null);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -330,8 +433,16 @@ const NewsForm = ({ news, onSubmit, onCancel, isSaving }) => {
         setMessage("News added successfully.");
       }
       setEditingNews(null);
+      setOrderConflict(null);
+      setPendingFormData(null);
       fetchData();
     } catch (err) {
+      if (err?.response?.status === 409 && err?.response?.data?.warning) {
+        setOrderConflict(err.response.data);
+        setPendingFormData(formData);
+        setIsSaving(false);
+        return;
+      }
       setError(err?.message || "An error occurred while saving.");
     } finally {
       setIsSaving(false);
@@ -358,8 +469,76 @@ const NewsForm = ({ news, onSubmit, onCancel, isSaving }) => {
     }
   };
 
+  const handleResolveConflict = async (newOrder) => {
+    if (!pendingFormData) return;
+    
+    setIsSaving(true);
+    setOrderConflict(null);
+    
+    try {
+      const {
+        news_id,
+        image,
+        extraImagesToUpload,
+        existingImagesToKeep,
+        ytLinks,
+        ...apiPayload
+      } = { ...pendingFormData, display_order: newOrder };
+
+      const form = new FormData();
+
+      Object.entries(apiPayload).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          form.append(key, value);
+        }
+      });
+
+      if (image) {
+        form.append("image", image);
+      }
+
+      if (Array.isArray(extraImagesToUpload) && extraImagesToUpload.length > 0) {
+        extraImagesToUpload.forEach((img) => form.append("extraImages", img));
+      }
+
+      if (Array.isArray(existingImagesToKeep) && existingImagesToKeep.length > 0) {
+        existingImagesToKeep.forEach((url) => form.append("existingImagesToKeep", url));
+      }
+
+      form.append("ytLinks", JSON.stringify(Array.isArray(ytLinks) ? ytLinks : []));
+
+      if (news_id) {
+        await updateNews(news_id, form);
+        setMessage("News successfully updated.");
+      } else {
+        await createNews(form);
+        setMessage("News added successfully.");
+      }
+      
+      setEditingNews(null);
+      setPendingFormData(null);
+      fetchData();
+    } catch (err) {
+      setError(err?.message || "An error occurred while saving.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-10 text-slate-900">
+      {/* Conflict Dialog */}
+      {orderConflict && (
+        <OrderConflictDialog
+          conflict={orderConflict}
+          onResolve={handleResolveConflict}
+          onCancel={() => {
+            setOrderConflict(null);
+            setPendingFormData(null);
+          }}
+        />
+      )}
+
       <div className="bg-white border-b border-slate-200 mb-6 md:mb-10">
         <div className="container mx-auto px-4 sm:px-6 py-6 md:py-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -400,6 +579,7 @@ const NewsForm = ({ news, onSubmit, onCancel, isSaving }) => {
                     <tr className="bg-slate-50/50 border-b border-slate-200">
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Title</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Order</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Image</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Actions</th>
                     </tr>
@@ -412,6 +592,11 @@ const NewsForm = ({ news, onSubmit, onCancel, isSaving }) => {
                           <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter mt-0.5">{news.news_date}</p>
                         </td>
                         <td className="px-6 py-5">{news.news_date}</td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                            {news.display_order || '—'}
+                          </span>
+                        </td>
                         <td className="px-6 py-5">
                           {news.image_url ? (
                             <img src={news.image_url.startsWith('http') ? news.image_url : `${SERVER_ROOT_URL}${news.image_url}`} alt="News" className="w-16 h-16 object-cover rounded-lg border border-slate-200" />

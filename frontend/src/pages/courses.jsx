@@ -74,7 +74,7 @@ const Courses = () => {
       </div>
 
       {coursesList.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 max-w-7xl mx-auto">
           {coursesList.map((course) => (
             <Link
               key={course.course_id}
@@ -85,6 +85,7 @@ const Courses = () => {
                 <img
                   src={course.image_url ? `${SERVER_ROOT_URL}${course.image_url}` : "placeholder_image_url"}
                   alt={course.course_name}
+                  loading="lazy"
                   className="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-110"
                 />
               </div>

@@ -1,5 +1,6 @@
 import TeachersModel from "../models/teachersModel.js";
 import { logAdminAction } from "../utils/auditLogger.js"; 
+import { validateDisplayOrder } from "../utils/displayOrderValidator.js";
 import fs from "fs/promises";
 import path from "path";
 
@@ -59,7 +60,7 @@ class TeachersController {
 
     static async create(req, res, next) {
         try {
-            const { full_name, specialization } = req.body;
+            const { full_name, specialization, display_order } = req.body;
             const profile_image = req.file ? req.file.path.replace(/\\/g, "/") : null;
 
             if (!full_name) {
@@ -67,7 +68,34 @@ class TeachersController {
                 return res.status(400).json({ message: "Full Name is required" });
             }
 
-            const id = await TeachersModel.create({ full_name, specialization, profile_image });
+            // Validate display order
+            const orderValidation = await validateDisplayOrder(
+                'Teachers',
+                display_order,
+                null,
+                'teacher_id'
+            );
+
+            // If conflict, return warning
+            if (!orderValidation.isValid) {
+                if (req.file) await TeachersController.removeFile(profile_image);
+                return res.status(409).json({
+                    success: false,
+                    message: 'Display order conflict detected',
+                    warning: orderValidation.warning,
+                    suggestion: orderValidation.suggestion,
+                    nextAvailable: orderValidation.nextAvailable,
+                    conflictingTeacherId: orderValidation.conflictData?.teacher_id,
+                });
+            }
+
+            const id = await TeachersModel.create({ 
+                full_name, 
+                specialization, 
+                profile_image,
+                display_order: orderValidation.displayOrder
+            });
+
             await logAdminAction({
                 admin_id: req.admin.admin_id,
                 action: "CREATE",
@@ -75,7 +103,13 @@ class TeachersController {
                 entity_id: id,
                 ip: req.ip
             });
-            res.status(201).json({ message: "Teacher created successfully", id });
+
+            res.status(201).json({ 
+                success: true,
+                message: "Teacher created successfully", 
+                id,
+                display_order: orderValidation.displayOrder
+            });
 
         } catch (err) {
             if (req.file) {
@@ -89,7 +123,7 @@ class TeachersController {
     static async update(req, res, next) {
         const teacherId = req.params.id;
         try {
-            const { full_name, specialization, clear_image } = req.body;
+            const { full_name, specialization, display_order, clear_image } = req.body;
             let new_image_path = undefined;
 
             if (req.file) {
@@ -103,10 +137,35 @@ class TeachersController {
                 return res.status(400).json({ message: "Full Name is required" });
             }
 
+            // Validate display order if provided
+            let finalDisplayOrder = undefined;
+            if (display_order !== undefined) {
+                const orderValidation = await validateDisplayOrder(
+                    'Teachers',
+                    display_order,
+                    teacherId, // Exclude current teacher from conflict check
+                    'teacher_id'
+                );
+
+                if (!orderValidation.isValid) {
+                    if (req.file) await TeachersController.removeFile(new_image_path);
+                    return res.status(409).json({
+                        success: false,
+                        message: 'Cannot update display order - conflict detected',
+                        warning: orderValidation.warning,
+                        suggestion: orderValidation.suggestion,
+                        nextAvailable: orderValidation.nextAvailable,
+                        conflictingTeacherId: orderValidation.conflictData?.teacher_id,
+                    });
+                }
+                finalDisplayOrder = orderValidation.displayOrder;
+            }
+
             const oldImagePath = await TeachersModel.update(teacherId, { 
                 full_name, 
                 specialization, 
-                profile_image: new_image_path
+                profile_image: new_image_path,
+                display_order: finalDisplayOrder
             });
 
             if (oldImagePath) {
@@ -120,7 +179,11 @@ class TeachersController {
                 ip: req.ip
             });
 
-            res.json({ message: "Teacher updated successfully" });
+            res.json({ 
+                success: true,
+                message: "Teacher updated successfully",
+                display_order: finalDisplayOrder
+            });
         } catch (err) {
             if (req.file) {
                 const newFilePath = req.file.path.replace(/\\/g, "/");

@@ -16,8 +16,9 @@ const EventDetail = () => {
       try {
         const { data } = await api.get(`/events/${slug}`);
         setEventItem(data);
-      } catch {
-        setError("Event not found.");
+      } catch (err) {
+        console.error("Error loading event:", err);
+        setError("Event not found. Please try again later.");
       }
     };
     load();

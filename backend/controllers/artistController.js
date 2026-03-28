@@ -57,10 +57,14 @@ class ArtistController {
   // CREATE artist
   static async create(req, res, next) {
     try {
-      const { full_name, bio, slug, seo_title, seo_description, seo_keywords } = req.body;
+      const { full_name, bio, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
 
       // Multer saves the file → we store only the relative path
       const profile_image = req.file ? `/uploads/${req.file.filename}` : null;
+
+      const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+        ? parseInt(display_order, 10) 
+        : 0;
 
       const id = await ArtistModel.create({
         full_name,
@@ -70,6 +74,7 @@ class ArtistController {
         seo_title,
         seo_description,
         seo_keywords,
+        display_order: displayOrderNum,
       });
       await logAdminAction({
         admin_id: req.admin.admin_id,
@@ -93,7 +98,7 @@ class ArtistController {
   // UPDATE artist
   static async update(req, res, next) {
   try {
-    const { full_name, bio, slug, seo_title, seo_description, seo_keywords } = req.body;
+    const { full_name, bio, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
     let profile_image = undefined; // only set if new file uploaded
 
     if (req.file) {
@@ -104,6 +109,10 @@ class ArtistController {
       }
     }
 
+    const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+      ? parseInt(display_order, 10) 
+      : undefined;
+
     await ArtistModel.update(req.params.id, {
       full_name,
       slug: slug !== undefined || full_name !== undefined ? slugify(slug || full_name) : undefined,
@@ -112,6 +121,7 @@ class ArtistController {
       seo_title,
       seo_description,
       seo_keywords,
+      display_order: displayOrderNum,
     });
 
     await logAdminAction({

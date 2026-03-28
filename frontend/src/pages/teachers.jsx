@@ -12,7 +12,7 @@ const Teachers = () => {
   const [teachers, setTeachers] = useState([]); 
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
-  const [selectedTeacher, setSelectedTeacher] = useState(null);
+
 
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
@@ -86,23 +86,23 @@ const Teachers = () => {
             />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 max-w-7xl mx-auto">
           {teachers.map((teacher) => (
             <div
-              key={teacher.teacher_id} 
-              onClick={() => setSelectedTeacher(teacher)}
-              className="group cursor-pointer"
+              key={teacher.teacher_id}
             >
-              <div className="bg-white rounded-3xl shadow-md hover:shadow-2xl overflow-hidden transition-all duration-500 transform hover:-translate-y-2">
-                <div className="overflow-hidden">
+              <div className="group bg-white rounded-3xl shadow-md hover:shadow-2xl overflow-hidden transition-all duration-500 transform hover:-translate-y-2">
+                <div className="overflow-hidden bg-gray-100">
                   <img
                     src={getImageUrl(teacher.profile_image)}
-                    alt={teacher.full_name} 
+                    alt={teacher.full_name}
+                    loading="lazy"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = TEACHER_IMAGE_FALLBACK;
                     }}
-className="w-full h-56 object-cover object-top transition-transform duration-500 hover:scale-105"                  />
+                    className="w-full h-56 object-contain transition-transform duration-500 group-hover:scale-110"
+                  />
                 </div>
 
                 <div className="p-8 text-center">
@@ -116,41 +116,6 @@ className="w-full h-56 object-cover object-top transition-transform duration-500
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {selectedTeacher && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-8 relative overflow-y-auto max-h-[80vh]">
-            <button
-              onClick={() => setSelectedTeacher(null)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-red-600 text-3xl font-bold"
-            >
-              &times;
-            </button>
-
-            <div className="text-center">
-              <img
-                src={getImageUrl(selectedTeacher.profile_image)}
-                alt={selectedTeacher.full_name} 
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = TEACHER_IMAGE_FALLBACK;
-                }}
-                className="w-40 h-40 md:w-56 md:h-56 object-cover rounded-full mx-auto shadow-lg mb-6"
-              />
-              <h2 className="text-3xl md:text-4xl font-extrabold text-[#191938] mb-2 font-['Inter']">
-                {selectedTeacher.full_name} 
-              </h2>
-              <p className="text-red-600 text-lg md:text-xl font-semibold mb-4">
-                {selectedTeacher.specialization} 
-              </p>
-              <p className="text-gray-600 mt-2">
-                <span className="font-semibold text-red-600">Specialization:</span>{" "}
-                {selectedTeacher.specialization} 
-              </p>
-            </div>
-          </div>
         </div>
       )}
     </section>

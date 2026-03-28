@@ -38,10 +38,12 @@ class GalleryModel {
 
     const createdSelect = createdColumn ? `${createdColumn} AS created_at` : "NULL AS created_at";
     const updatedSelect = updatedColumn ? `${updatedColumn} AS updated_at` : "NULL AS updated_at";
-    const orderBy = createdColumn ? `${createdColumn} DESC, media_id DESC` : "media_id DESC";
+    const orderBy = createdColumn && updatedColumn 
+      ? `display_order ASC, ${updatedColumn} DESC, media_id DESC` 
+      : `display_order ASC, media_id DESC`;
 
     const [rows] = await db.query(
-      `SELECT media_id, title, ${imageColumn} AS image_url, ${createdSelect}, ${updatedSelect}
+      `SELECT media_id, title, ${imageColumn} AS image_url, display_order, ${createdSelect}, ${updatedSelect}
        FROM Gallery
        WHERE ${imageColumn} IS NOT NULL AND ${imageColumn} <> ''
        ORDER BY ${orderBy}`
@@ -58,7 +60,7 @@ class GalleryModel {
     const updatedSelect = updatedColumn ? `${updatedColumn} AS updated_at` : "NULL AS updated_at";
 
     const [rows] = await db.query(
-      `SELECT media_id, title, ${imageColumn} AS image_url, ${createdSelect}, ${updatedSelect}
+      `SELECT media_id, title, ${imageColumn} AS image_url, display_order, ${createdSelect}, ${updatedSelect}
        FROM Gallery
        WHERE media_id = ?`,
       [mediaId]
@@ -66,18 +68,18 @@ class GalleryModel {
     return rows[0] || null;
   }
 
-  static async create({ title, image_url }) {
+  static async create({ title, image_url, display_order }) {
     const imageColumn = await GalleryModel.getImageColumn();
 
     const [result] = await db.query(
-      `INSERT INTO Gallery (title, ${imageColumn})
-       VALUES (?, ?)`,
-      [title || null, image_url]
+      `INSERT INTO Gallery (title, ${imageColumn}, display_order)
+       VALUES (?, ?, ?)`,
+      [title || null, image_url, display_order || 0]
     );
     return result.insertId;
   }
 
-  static async update(mediaId, { title, image_url }) {
+  static async update(mediaId, { title, image_url, display_order }) {
     const imageColumn = await GalleryModel.getImageColumn();
     const fields = [];
     const values = [];
@@ -91,6 +93,11 @@ class GalleryModel {
       fields.push(`${imageColumn} = ?`);
       // Older schema uses NOT NULL file_url, so map explicit clear to empty string.
       values.push(image_url === null && imageColumn === "file_url" ? "" : image_url);
+    }
+
+    if (display_order !== undefined) {
+      fields.push("display_order = ?");
+      values.push(display_order);
     }
 
     if (fields.length === 0) return;

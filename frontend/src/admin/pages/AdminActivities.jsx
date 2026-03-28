@@ -25,12 +25,57 @@ const Alert = ({ message, type, onClose }) => (
   </div>
 );
 
+const OrderConflictDialog = ({ conflict, onResolve, onCancel }) => {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [customOrder, setCustomOrder] = useState("");
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in duration-300">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-start gap-3">
+          <div className="text-3xl">⚠️</div>
+          <div>
+            <h2 className="font-bold text-slate-900">Display Order Conflict</h2>
+            <p className="text-sm text-slate-600 mt-1">{conflict?.warning}</p>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+            <p className="font-semibold mb-2">💡 Suggestion:</p>
+            <p>{conflict?.suggestion}</p>
+          </div>
+          <div className="space-y-2">
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input type="radio" name="order-choice" checked={selectedOrder === conflict?.nextAvailable} onChange={() => {setSelectedOrder(conflict?.nextAvailable);setCustomOrder("");}} className="w-4 h-4 text-indigo-600" />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Use suggested order: {conflict?.nextAvailable}</span>
+                <p className="text-xs text-slate-500">Automatically assign the next available order</p>
+              </span>
+            </label>
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input type="radio" name="order-choice" checked={selectedOrder === "custom"} onChange={() => setSelectedOrder("custom")} className="w-4 h-4 text-indigo-600" />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Enter custom order:</span>
+                <input type="number" placeholder="Enter order number" value={customOrder} onChange={(e) => setCustomOrder(e.target.value)} onClick={() => setSelectedOrder("custom")} className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" min="1" />
+              </span>
+            </label>
+          </div>
+        </div>
+        <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
+          <button onClick={onCancel} className="px-6 py-2.5 rounded-xl font-semibold text-slate-600 hover:bg-slate-200 transition">Cancel</button>
+          <button onClick={() => {if (selectedOrder === "custom") {if (!customOrder || customOrder < 1) {alert("Please enter a valid order number");return;}onResolve(customOrder);} else {onResolve(selectedOrder);}}} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition">Proceed</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /** * COMPONENT: ActivityForm */
 const ActivityForm = ({ activity, onSubmit, onCancel, isSaving }) => {
   const [formData, setFormData] = useState({
     title: activity?.title || "",
     description: activity?.description || "",
     video_url: activity?.video_url || "",
+    display_order: activity?.display_order || 0,
   });
 
   const isNew = !activity || !activity.activity_id;
@@ -89,6 +134,22 @@ const ActivityForm = ({ activity, onSubmit, onCancel, isSaving }) => {
             className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
           />
         </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+            Display Order <span className="text-slate-400 font-normal">(Leave blank for auto-assign)</span>
+          </label>
+          <input
+            type="number"
+            name="display_order"
+            placeholder="e.g. 1, 2, 3..."
+            value={formData.display_order}
+            onChange={handleChange}
+            min="0"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+          />
+          <p className="text-xs text-slate-400 mt-2">Determines the order in which this item appears.</p>
+        </div>
       </div>
 
       <div className="bg-slate-50 px-8 py-4 flex justify-end gap-3">
@@ -110,6 +171,8 @@ export default function AdminActivities() {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [orderConflict, setOrderConflict] = useState(null);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -137,9 +200,40 @@ export default function AdminActivities() {
         setMessage("New activity published.");
       }
       setEditingActivity(null);
+      setOrderConflict(null);
+      setPendingFormData(null);
       fetchData();
     } catch (err) {
+      if (err?.response?.status === 409 && err?.response?.data?.warning) {
+        setOrderConflict(err.response.data);
+        setPendingFormData(formData);
+        setIsSaving(false);
+        return;
+      }
       setError(err?.message || "Operation failed. Please check your connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResolveConflict = async (newOrder) => {
+    if (!pendingFormData) return;
+    setIsSaving(true);
+    setOrderConflict(null);
+    try {
+      const updatedFormData = { ...pendingFormData, display_order: newOrder };
+      if (editingActivity && editingActivity.activity_id) {
+        await updateActivity(editingActivity.activity_id, updatedFormData);
+        setMessage("Activity updated successfully.");
+      } else {
+        await createActivity(updatedFormData);
+        setMessage("New activity published.");
+      }
+      setEditingActivity(null);
+      setPendingFormData(null);
+      fetchData();
+    } catch (err) {
+      setError(err?.message || "Operation failed.");
     } finally {
       setIsSaving(false);
     }
@@ -158,6 +252,17 @@ export default function AdminActivities() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 text-slate-900">
+      {orderConflict && (
+        <OrderConflictDialog
+          conflict={orderConflict}
+          onResolve={handleResolveConflict}
+          onCancel={() => {
+            setOrderConflict(null);
+            setPendingFormData(null);
+          }}
+        />
+      )}
+
       {/* HEADER SECTION */}
       <div className="bg-white border-b border-slate-200 mb-8">
         <div className="container mx-auto px-6 py-8">
@@ -211,6 +316,7 @@ export default function AdminActivities() {
                   <tr className="bg-slate-50/50 border-b border-slate-200">
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Activity Title</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">Video Link</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Order</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
@@ -227,6 +333,11 @@ export default function AdminActivities() {
                         <a href={a.video_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-500 hover:text-indigo-700 underline truncate max-w-50 block">
                           {a.video_url}
                         </a>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                          {a.display_order || '—'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">

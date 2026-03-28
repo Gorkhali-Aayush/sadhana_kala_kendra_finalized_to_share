@@ -9,6 +9,10 @@ import { getAllCourses } from "../../services/coursesService.js";
 import { getAllEvents } from "../../services/eventsService.js"; 
 import { getAllTeachers } from "../../services/teachersService.js";
 import { getAllArtists } from "../../services/artistsService.js"; 
+import { getPublicOffers } from "../../services/offersService.js";
+import { getAllNews } from "../../services/newsService.js";
+import { getAllActivities } from "../../services/activitiesService.js";
+import { getAllGalleryItems } from "../../services/galleryService.js";
 import RegisterService from "../../services/registerServices.js";
 
 import {
@@ -123,6 +127,10 @@ const AdminHome = () => {
         teachersCount: 0,
         artistsCount: 0,
         registrationsCount: 0,
+        offersCount: 0,
+        newsCount: 0,
+        activitiesCount: 0,
+        galleryCount: 0,
     });
     
     const [registrationStats, setRegistrationStats] = useState({
@@ -145,7 +153,7 @@ const AdminHome = () => {
         setLoading(true);
         setError(null);
         try {
-            const [bod, program, courses, events, teachers, artists, registrations] = await Promise.all([
+            const [bod, program, courses, events, teachers, artists, registrations, offers, news, activities, gallery] = await Promise.all([
                 getAllBOD(),
                 getAllPrograms(),
                 getAllCourses(),
@@ -153,6 +161,10 @@ const AdminHome = () => {
                 getAllTeachers(),
                 getAllArtists(),
                 RegisterService.getAllRegistrations(),
+                getPublicOffers(),
+                getAllNews(),
+                getAllActivities(),
+                getAllGalleryItems(),
             ]);
 
             setStats({
@@ -162,7 +174,11 @@ const AdminHome = () => {
                 eventsCount: events.length,
                 teachersCount: teachers.length,
                 artistsCount: artists.length,
-                registrationsCount: registrations.length, 
+                registrationsCount: registrations.length,
+                offersCount: offers.length,
+                newsCount: news.length,
+                activitiesCount: activities.length,
+                galleryCount: gallery.length,
             });
             
             const unreviewed = registrations.filter((r) => r.status === "Unread").length;
@@ -191,8 +207,12 @@ const AdminHome = () => {
         { title: "Program Records", value: stats.programCount, color: { border: "border-gray-500", bg: "bg-gray-600" }, icon: Icons.History, path: "about", clickable: true },
         { title: "Courses Offered", value: stats.coursesCount, color: { border: "border-teal-500", bg: "bg-teal-600" }, icon: Icons.Book, path: "courses", clickable: true },
         { title: "Events Scheduled", value: stats.eventsCount, color: { border: "border-orange-500", bg: "bg-orange-600" }, icon: Icons.Calendar, path: "events", clickable: true },
-        { title: "Teachers/Staff", value: stats.teachersCount, color: { border: "border-red-500", bg: "bg-red-600" }, icon: Icons.Target, path: "teachers", clickable: true },
+        { title: "Teachers", value: stats.teachersCount, color: { border: "border-red-500", bg: "bg-red-600" }, icon: Icons.Target, path: "teachers", clickable: true },
         { title: "Artists Featured", value: stats.artistsCount, color: { border: "border-blue-500", bg: "bg-blue-600" }, icon: Icons.Palette, path: "artists", clickable: true },
+        { title: "Active Offers", value: stats.offersCount, color: { border: "border-purple-500", bg: "bg-purple-600" }, icon: Icons.Briefcase, path: "offers", clickable: true },
+        { title: "News Updates", value: stats.newsCount, color: { border: "border-pink-500", bg: "bg-pink-600" }, icon: Icons.Eye, path: "news", clickable: true },
+        { title: "Activities", value: stats.activitiesCount, color: { border: "border-cyan-500", bg: "bg-cyan-600" }, icon: Icons.Gallery, path: "activities", clickable: true },
+        { title: "Gallery Items", value: stats.galleryCount, color: { border: "border-yellow-500", bg: "bg-yellow-600" }, icon: Icons.Gallery, path: "gallery", clickable: true },
     ];
     
     // Combined data for comparison chart
@@ -212,8 +232,8 @@ const AdminHome = () => {
     
     const handleNavigation = (path) => {
     // 1. Construct the full path. 
-    // If your App.js routes are defined as "/admin/register", etc.
-    const fullPath = `/admin/${path}`;
+    // If your App.js routes are defined as "/server/register", etc.
+    const fullPath = `/server/${path}`;
     
     console.log(`Navigating to: ${fullPath}`); // For debugging
 
@@ -334,6 +354,30 @@ const AdminHome = () => {
                             label="Manage Teachers" 
                             onClick={() => handleNavigation('teachers')}
                             colorClass="bg-red-600 hover:bg-red-700"
+                        />
+                        <QuickActionButton 
+                            icon={Icons.Briefcase} 
+                            label="Manage Offers" 
+                            onClick={() => handleNavigation('offers')}
+                            colorClass="bg-purple-600 hover:bg-purple-700"
+                        />
+                        <QuickActionButton 
+                            icon={Icons.Eye} 
+                            label="Manage News" 
+                            onClick={() => handleNavigation('news')}
+                            colorClass="bg-pink-600 hover:bg-pink-700"
+                        />
+                        <QuickActionButton 
+                            icon={Icons.Gallery} 
+                            label="Edit Activities" 
+                            onClick={() => handleNavigation('activities')}
+                            colorClass="bg-cyan-600 hover:bg-cyan-700"
+                        />
+                        <QuickActionButton 
+                            icon={Icons.Gallery} 
+                            label="Update Gallery" 
+                            onClick={() => handleNavigation('gallery')}
+                            colorClass="bg-yellow-600 hover:bg-yellow-700"
                         />
                     </div>
                 </div>

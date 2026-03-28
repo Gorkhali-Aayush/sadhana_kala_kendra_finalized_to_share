@@ -43,7 +43,7 @@ class OffersModel {
     const [rows] = await db.query(
       `SELECT o.*, c.course_name FROM Offers o
        LEFT JOIN Courses c ON o.course_id = c.course_id
-       ORDER BY o.created_at DESC, o.offer_id DESC`
+       ORDER BY o.display_order ASC, o.created_at DESC, o.offer_id DESC`
     );
     return rows;
   }
@@ -64,7 +64,7 @@ class OffersModel {
        WHERE course_id = ? AND is_active = 1
        AND (valid_from IS NULL OR valid_from <= CURDATE())
        AND (valid_to IS NULL OR valid_to >= CURDATE())
-       ORDER BY created_at DESC`,
+       ORDER BY display_order ASC, created_at DESC`,
       [courseId]
     );
     return rows;

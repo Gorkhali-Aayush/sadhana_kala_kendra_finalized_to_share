@@ -5,9 +5,9 @@ class TeachersModel {
     static async getAll() {
         try {
             const [rows] = await db.query(`
-                SELECT teacher_id, full_name, specialization, profile_image
+                SELECT teacher_id, full_name, specialization, profile_image, display_order
                 FROM Teachers
-                ORDER BY teacher_id ASC
+                ORDER BY display_order ASC, created_at ASC
             `);
             return rows;
         } catch (err) {
@@ -21,7 +21,7 @@ class TeachersModel {
         if (!teacher_id) throw new Error("Teacher ID is required");
         try {
             const [rows] = await db.query(`
-                SELECT teacher_id, full_name, specialization, profile_image
+                SELECT teacher_id, full_name, specialization, profile_image, display_order
                 FROM Teachers
                 WHERE teacher_id = ?
             `, [teacher_id]);
@@ -33,16 +33,16 @@ class TeachersModel {
     }
 
     // Create a new teacher
-    static async create({ full_name, specialization, profile_image }) {
+    static async create({ full_name, specialization, profile_image, display_order }) {
         if (!full_name || full_name.trim() === "") {
             throw new Error("full_name is required. Please enter the teacher's full name.");
         }
 
         try {
             const [result] = await db.query(`
-                INSERT INTO Teachers (full_name, specialization, profile_image)
-                VALUES (?, ?, ?)
-            `, [full_name, specialization, profile_image]);
+                INSERT INTO Teachers (full_name, specialization, profile_image, display_order)
+                VALUES (?, ?, ?, ?)
+            `, [full_name, specialization, profile_image, display_order || 0]);
             return result.insertId;
         } catch (err) {
             console.error("Error creating teacher:", err);
@@ -54,7 +54,7 @@ class TeachersModel {
     }
 
     // Update an existing teacher
-    static async update(teacher_id, { full_name, specialization, profile_image }) {
+    static async update(teacher_id, { full_name, specialization, profile_image, display_order }) {
         if (!teacher_id) throw new Error("Teacher ID is required for update");
         if (!full_name || full_name.trim() === "") {
             throw new Error("full_name is required. Please enter the teacher's full name.");
@@ -64,12 +64,16 @@ class TeachersModel {
             UPDATE Teachers
             SET full_name = ?, specialization = ?
             ${profile_image !== undefined ? ', profile_image = ?' : ''}
+            ${display_order !== undefined ? ', display_order = ?' : ''}
             WHERE teacher_id = ?
         `;
 
         const params = [full_name, specialization];
         if (profile_image !== undefined) {
             params.push(profile_image);
+        }
+        if (display_order !== undefined) {
+            params.push(display_order);
         }
         params.push(teacher_id);
 

@@ -6,6 +6,10 @@ const GALLERY_API = "/gallery";
 const createFormData = (data, isUpdate = false) => {
   const formData = new FormData();
   formData.append("title", data.title || "");
+  
+  if (data.display_order !== undefined && data.display_order !== null && data.display_order !== '') {
+    formData.append("display_order", data.display_order);
+  }
 
   if (data.image_file) {
     formData.append("image", data.image_file);

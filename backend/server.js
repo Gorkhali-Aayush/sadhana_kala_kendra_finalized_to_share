@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser"; 
@@ -108,6 +109,21 @@ app.use(
   })
 );
 
+// ============ COMPRESSION MIDDLEWARE ============
+// Enable gzip compression for all responses
+// Reduces API response size by 60-70%
+app.use(compression({
+  level: 6, // Good balance between compression ratio and CPU usage
+  threshold: 1024, // Only compress responses larger than 1KB
+  filter: (req, res) => {
+    // Skip compression for GET requests from older browsers if needed
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
+
 // Trust proxy - important for cPanel/reverse proxy setups
 app.set("trust proxy", 1);
 
@@ -135,8 +151,66 @@ app.use(
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
+// ============ CACHE CONTROL HEADERS ============
+// Cache public endpoints appropriately to improve performance
 
-app.use("/api/about", aboutRoutes);
+// Cache list endpoints for 1 hour
+app.use("/api/courses", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
+  next();
+});
+
+app.use("/api/teachers", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
+  next();
+});
+
+app.use("/api/artists", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=86400"); // 1 day
+  next();
+});
+
+app.use("/api/events", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
+  next();
+});
+
+app.use("/api/activities", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
+  next();
+});
+
+// Cache offers for 30 minutes (changes more frequently)
+app.use("/api/offers", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=1800"); // 30 minutes
+  next();
+});
+
+// Cache news for 1 hour
+app.use("/api/news", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
+  next();
+});
+
+// Cache gallery for 1 day
+app.use("/api/gallery", (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=86400"); // 1 day
+  next();
+});
+
+// Cache static uploads for 1 day
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+  maxAge: "1d",
+  etag: false
+}));
+
+// Don't cache auth/admin endpoints
+app.use("/api/server", (req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  next();
+});
+
+// Routesapp.use("/api/about", aboutRoutes);
 app.use("/api/teachers", teachersRoutes);
 app.use("/api/courses", coursesRoutes);
 app.use("/api/artists", artistRoutes);
@@ -149,7 +223,7 @@ app.use("/api/gallery", galleryRoutes);
 app.use("/api/gallary", galleryRoutes);
 app.use("/gallery", galleryRoutes);
 app.use("/api/register", registerRoutes);
-app.use("/api/admin", limiter, adminRoutes);
+app.use("/api/server", limiter, adminRoutes);
 app.use("/sitemap.xml", sitemapRoutes);
 
 app.use((req, res) => {
@@ -191,7 +265,8 @@ app.use((err, req, res, next) => {
   }
 
   // Generic error handling
-       err.message || "Internal server error";
+  const statusCode = err.statusCode || 500;
+  const message = err.message || "Internal server error";
 
   // Log errors in production
   if (statusCode >= 500) {

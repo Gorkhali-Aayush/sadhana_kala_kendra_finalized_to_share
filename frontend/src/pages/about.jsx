@@ -106,12 +106,7 @@ const About = () => {
         const programsData = programsResponse?.data || [];
 
         setBodMembers(bodData);
-
-        // Sort programs by date descending
-        const sortedPrograms = programsData.sort(
-          (a, b) => new Date(b.program_date) - new Date(a.program_date),
-        );
-        setPrograms(sortedPrograms);
+        setPrograms(programsData);
         setTeamMembers(teamData);
       } catch (err) {
         console.error("Error fetching About Us data:", err);
@@ -179,6 +174,7 @@ const About = () => {
             <img
               src={logo}
               alt="Sadhana Kala Kendra Logo"
+              loading="lazy"
               className="w-40 sm:w-48 md:w-56 lg:w-64 h-auto object-contain"
             />
           </div>
@@ -367,6 +363,7 @@ const About = () => {
                             : logo
                         }
                         alt={member.name}
+                        loading="lazy"
                         className="w-full aspect-4/3 object-cover object-top transition-transform duration-500 hover:scale-105"
                       />
                     </div>
@@ -548,6 +545,7 @@ const About = () => {
                         <img
                           src={`${SERVER_BASE_URL}${program.image_url}`}
                           alt={program.title}
+                          loading="lazy"
                           className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                         />
                       ) : (

@@ -74,7 +74,7 @@ export default defineConfig(({ mode }) => {
       // Development proxy - only used in dev mode
       proxy: {
         "/api": {
-          target: "http://localhost:5000",
+          target: env.VITE_BACKEND_URL || "http://localhost:5000",
           changeOrigin: true,
           secure: false,
         },

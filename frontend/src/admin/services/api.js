@@ -34,7 +34,7 @@ api.interceptors.response.use(
   (error) => {
     if (
       error.response?.status === 401 &&
-      window.location.pathname.startsWith("/admin")
+      window.location.pathname.startsWith("/server")
     ) {
       onUnauthorizedCallback();
     }

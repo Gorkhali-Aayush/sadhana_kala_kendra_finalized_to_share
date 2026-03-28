@@ -13,7 +13,20 @@ const xmlEscape = (value) =>
 
 router.get("/", async (req, res, next) => {
   try {
-    const siteUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+    // Get site URL from environment - required in production
+    let siteUrl = process.env.FRONTEND_URL;
+    
+    if (!siteUrl) {
+      // Development fallback
+      if (process.env.NODE_ENV === "production") {
+        return res.status(500).json({
+          error: "FRONTEND_URL environment variable is required in production for sitemap generation"
+        });
+      }
+      siteUrl = "http://localhost:5173";
+    }
+    
+    siteUrl = siteUrl.replace(/\/$/, "");
 
     const staticPaths = ["/", "/about", "/courses", "/artists", "/events", "/offers", "/gallery", "/teachers"];
 

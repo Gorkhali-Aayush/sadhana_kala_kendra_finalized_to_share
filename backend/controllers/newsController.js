@@ -56,7 +56,7 @@ class NewsController {
 
   static async create(req, res, next) {
     try {
-      const { title, rich_content, news_date, image_url, resources, slug, seo_title, seo_description, seo_keywords } = req.body;
+      const { title, rich_content, news_date, image_url, resources, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
 
       if (!title || !title.trim()) {
         return res.status(400).json({ message: "Title is required." });
@@ -67,6 +67,10 @@ class NewsController {
         ? `/uploads/${imageFile.filename}`
         : (image_url || null);
 
+      const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+        ? parseInt(display_order, 10) 
+        : 0;
+
       const id = await NewsModel.create({
         title,
         slug: slugify(slug || title),
@@ -76,6 +80,7 @@ class NewsController {
         seo_title,
         seo_description,
         seo_keywords,
+        display_order: displayOrderNum,
       });
 
       const extraImageFiles = req.files?.extraImages || [];
@@ -141,12 +146,16 @@ class NewsController {
 
   static async update(req, res, next) {
     try {
-      const { title, content, rich_content, news_date, image_url, resources, slug, seo_title, seo_description, seo_keywords } = req.body;
+      const { title, content, rich_content, news_date, image_url, resources, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
 
       const imageFile = req.files?.image?.[0];
       const normalizedImageUrl = imageFile
         ? `/uploads/${imageFile.filename}`
         : image_url;
+
+      const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+        ? parseInt(display_order, 10) 
+        : undefined;
 
       await NewsModel.update(req.params.id, {
         title,
@@ -157,6 +166,7 @@ class NewsController {
         seo_title,
         seo_description,
         seo_keywords,
+        display_order: displayOrderNum,
       });
 
       const hasResourceInputs =

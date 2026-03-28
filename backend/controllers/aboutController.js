@@ -82,7 +82,10 @@ class AboutController {
 
     static async createBOD(req, res) {
         const profile_image = AboutController.getImagePath(req);
-        const bodData = { ...req.body, profile_image };
+        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
+            ? parseInt(req.body.display_order, 10) 
+            : 0;
+        const bodData = { ...req.body, profile_image, display_order: displayOrderNum };
         try {
             const newId = await AboutModel.createBOD(bodData);
 
@@ -104,7 +107,10 @@ class AboutController {
     static async updateBOD(req, res) {
         const { id } = req.params;
         const newImagePath = AboutController.getImagePath(req);
-        const updateData = { ...req.body, ...(newImagePath && { profile_image: newImagePath }) };
+        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
+            ? parseInt(req.body.display_order, 10) 
+            : undefined;
+        const updateData = { ...req.body, ...(newImagePath && { profile_image: newImagePath }), ...(displayOrderNum !== undefined && { display_order: displayOrderNum }) };
         try {
             if (newImagePath) await AboutController.deleteOldBODImage(id);
             await AboutModel.updateBOD(id, updateData);
@@ -168,7 +174,10 @@ class AboutController {
 
     static async createTeamMember(req, res) {
         const image_url = AboutController.getImagePath(req);
-        const data = { ...req.body, image_url };
+        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
+            ? parseInt(req.body.display_order, 10) 
+            : 0;
+        const data = { ...req.body, image_url, display_order: displayOrderNum };
         try {
             const newId = await AboutModel.createTeamMember(data);
 
@@ -190,7 +199,10 @@ class AboutController {
     static async updateTeamMember(req, res) {
         const { id } = req.params;
         const newImage = AboutController.getImagePath(req);
-        const updateData = { ...req.body, ...(newImage && { image_url: newImage }) };
+        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
+            ? parseInt(req.body.display_order, 10) 
+            : undefined;
+        const updateData = { ...req.body, ...(newImage && { image_url: newImage }), ...(displayOrderNum !== undefined && { display_order: displayOrderNum }) };
         try {
             if (newImage) await AboutController.deleteOldTeamImage(id);
             await AboutModel.updateTeamMember(id, updateData);
@@ -264,10 +276,14 @@ class AboutController {
 
     static async createProgram(req, res) {
         const image_url = AboutController.getImagePath(req);
+        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
+            ? parseInt(req.body.display_order, 10) 
+            : 0;
         const programData = {
             ...req.body,
             slug: slugify(req.body.slug || req.body.title),
             image_url,
+            display_order: displayOrderNum,
         };
         try {
             const newId = await AboutModel.createProgram(programData);
@@ -294,12 +310,16 @@ class AboutController {
     static async updateProgram(req, res) {
         const { id } = req.params;
         const newImagePath = AboutController.getImagePath(req);
+        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
+            ? parseInt(req.body.display_order, 10) 
+            : undefined;
         const updateData = {
             ...req.body,
             ...(req.body.slug !== undefined || req.body.title !== undefined
                 ? { slug: slugify(req.body.slug || req.body.title) }
                 : {}),
             ...(newImagePath && { image_url: newImagePath }),
+            ...(displayOrderNum !== undefined && { display_order: displayOrderNum }),
         };
         try {
             if (newImagePath) await AboutController.deleteOldProgramImage(id);

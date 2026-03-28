@@ -22,9 +22,9 @@ const navItems = [
   { name: "Home", to: "/" },
   { name: "About Us", to: "/about" },
   { name: "Courses", to: "/courses" },
-  { name: "Activities", to: "/activities" },
-  { name: "Events", to: "/events" },
+  { name: "Updates", to: "/events" },
   { name: "Offers", to: "/offers" },
+  { name: "Activities", to: "/activities" },
   { name: "Gallery", to: "/gallery" },
   
 ];

@@ -4,7 +4,7 @@ import db from "../config/db.js";
 const AboutModel = {
   // ===== BOD =====
   getAllBOD: async () => {
-    const [rows] = await db.query("SELECT * FROM BOD ORDER BY bod_id ASC");
+    const [rows] = await db.query("SELECT * FROM BOD ORDER BY display_order ASC, bod_id ASC");
     return rows;
   },
 
@@ -19,16 +19,16 @@ const AboutModel = {
   },
 
   createBOD: async (data) => {
-    const { name, designation, bio, details_content, profile_image, slug, seo_title, seo_description, seo_keywords } = data;
+    const { name, designation, bio, details_content, profile_image, slug, seo_title, seo_description, seo_keywords, display_order } = data;
     const [result] = await db.query(
-      "INSERT INTO BOD (name, designation, bio, details_content, profile_image, slug, seo_title, seo_description, seo_keywords) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [name, designation, bio || null, details_content || null, profile_image || null, slug || null, seo_title || null, seo_description || null, seo_keywords || null]
+      "INSERT INTO BOD (name, designation, bio, details_content, profile_image, slug, seo_title, seo_description, seo_keywords, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [name, designation, bio || null, details_content || null, profile_image || null, slug || null, seo_title || null, seo_description || null, seo_keywords || null, display_order ?? 0]
     );
     return result.insertId;
   },
 
   updateBOD: async (id, data) => {
-    const { name, designation, bio, details_content, profile_image, slug, seo_title, seo_description, seo_keywords } = data;
+    const { name, designation, bio, details_content, profile_image, slug, seo_title, seo_description, seo_keywords, display_order } = data;
     
     // Build update query dynamically to only update fields that are provided
     const updates = [];
@@ -71,6 +71,11 @@ const AboutModel = {
         updates.push('profile_image = ?');
         values.push(profile_image || null);
     }
+
+    if (display_order !== undefined) {
+      updates.push('display_order = ?');
+      values.push(display_order);
+    }
     
     values.push(id);
     
@@ -89,7 +94,7 @@ const AboutModel = {
 
   // ===== TEAM MEMBERS =====
   getAllTeamMembers: async () => {
-    const [rows] = await db.query("SELECT * FROM team_members ORDER BY id ASC");
+    const [rows] = await db.query("SELECT * FROM team_members ORDER BY display_order ASC, id ASC");
     return rows;
   },
 
@@ -101,18 +106,18 @@ const AboutModel = {
   },
 
   createTeamMember: async (data) => {
-    const { name, subtitle, image_url } = data;
+    const { name, subtitle, image_url, description, display_order } = data;
 
     const [result] = await db.query(
-      "INSERT INTO team_members (name, subtitle, image_url) VALUES (?, ?, ?)",
-      [name, subtitle, image_url || null]
+      "INSERT INTO team_members (name, subtitle, description, image_url, display_order) VALUES (?, ?, ?, ?, ?)",
+      [name, subtitle || null, description || null, image_url || null, display_order ?? 0]
     );
 
     return result.insertId;
   },
 
   updateTeamMember: async (id, data) => {
-    const { name, subtitle, image_url } = data;
+    const { name, subtitle, description, image_url, display_order } = data;
     
     const updates = [];
     const values = [];
@@ -122,10 +127,20 @@ const AboutModel = {
     updates.push('subtitle = ?');
     values.push(subtitle || null);
     
+    if (description !== undefined) {
+      updates.push('description = ?');
+      values.push(description || null);
+    }
+    
     // Only update image_url if a new one is provided
     if (image_url !== undefined) {
         updates.push('image_url = ?');
         values.push(image_url || null);
+    }
+
+    if (display_order !== undefined) {
+      updates.push('display_order = ?');
+      values.push(display_order);
     }
     
     values.push(id);
@@ -147,7 +162,7 @@ const AboutModel = {
   },
   // ===== PROGRAMS =====
 getAllPrograms: async () => {
-  const [rows] = await db.query("SELECT * FROM Programs ORDER BY program_date DESC");
+  const [rows] = await db.query("SELECT * FROM Programs ORDER BY display_order ASC, program_date DESC");
   return rows;
 },
 
@@ -168,9 +183,9 @@ getProgramBySlug: async (slug) => {
 },
 
 createProgram: async (data) => {
-  const { program_date, title, slug, description, image_url, seo_title, seo_description, seo_keywords } = data;
+  const { program_date, title, slug, description, image_url, seo_title, seo_description, seo_keywords, display_order } = data;
   const [result] = await db.query(
-    "INSERT INTO Programs (program_date, title, slug, description, image_url, seo_title, seo_description, seo_keywords) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO Programs (program_date, title, slug, description, image_url, seo_title, seo_description, seo_keywords, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       program_date,
       title,
@@ -180,13 +195,14 @@ createProgram: async (data) => {
       seo_title || null,
       seo_description || null,
       seo_keywords || null,
+      display_order ?? 0,
     ]
   );
   return result.insertId;
 },
 
 updateProgram: async (id, data) => {
-  const { program_date, title, slug, description, image_url, seo_title, seo_description, seo_keywords } = data;
+  const { program_date, title, slug, description, image_url, seo_title, seo_description, seo_keywords, display_order } = data;
   
   const updates = [];
   const values = [];
@@ -210,6 +226,11 @@ updateProgram: async (id, data) => {
   if (image_url !== undefined) {
     updates.push('image_url = ?');
     values.push(image_url || null);
+  }
+
+  if (display_order !== undefined) {
+    updates.push('display_order = ?');
+    values.push(display_order);
   }
   
   values.push(id);

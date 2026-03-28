@@ -51,7 +51,8 @@ const AboutProgramDetail = () => {
           return;
         }
         setProgram(match);
-      } catch {
+      } catch (err) {
+        console.error("Error loading program:", err);
         setError("Program details failed to load.");
       } finally {
         setLoading(false);

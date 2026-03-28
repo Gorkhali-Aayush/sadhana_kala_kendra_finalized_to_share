@@ -34,7 +34,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
         setLoading(true);
 
         try {
-            const response = await api.post("/admin/login", {
+            const response = await api.post("/server/login", {
                 username: sanitizedUsername,
                 password: sanitizedPassword,
             }); 
@@ -46,7 +46,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
 
                 sessionStorage.setItem("adminUsername", data.username);
 
-                navigate("/admin", { replace: true });
+                navigate("/server", { replace: true });
             } else {
                 setError("Login failed: Invalid server response.");
             }

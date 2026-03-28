@@ -8,6 +8,10 @@ const createFormData = (data, isUpdate) => {
     
     formData.append('full_name', data.full_name);
     formData.append('specialization', data.specialization || '');
+    
+    if (data.display_order !== undefined && data.display_order !== null && data.display_order !== '') {
+        formData.append('display_order', data.display_order);
+    }
 
     if (data.profile_image_file) {
         formData.append('profile_image', data.profile_image_file);

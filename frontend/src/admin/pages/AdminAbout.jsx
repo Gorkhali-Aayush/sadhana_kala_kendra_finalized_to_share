@@ -43,6 +43,7 @@ const BODForm = ({ member, onSubmit, onCancel, isSaving }) => {
     seo_title: member?.seo_title || "",
     seo_description: member?.seo_description || "",
     seo_keywords: member?.seo_keywords || "",
+    display_order: member?.display_order || 0,
     profile_image_file: null,
     existing_profile_image: member?.profile_image || "",
   });
@@ -178,6 +179,22 @@ const BODForm = ({ member, onSubmit, onCancel, isSaving }) => {
         </div>
 
         <div className="col-span-2">
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+            Display Order <span className="text-slate-400 font-normal">(Leave blank for auto-assign)</span>
+          </label>
+          <input
+            type="number"
+            name="display_order"
+            placeholder="e.g. 1, 2, 3..."
+            value={formData.display_order}
+            onChange={handleChange}
+            min="0"
+            className="mt-1 block w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+          />
+          <p className="text-xs text-slate-400 mt-2">Determines the order in which this item appears.</p>
+        </div>
+
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700">
             SEO Title
           </label>
@@ -303,6 +320,7 @@ const ProgramForm = ({ program, onSubmit, onCancel, isSaving }) => {
     seo_title: program?.seo_title || "",
     seo_description: program?.seo_description || "",
     seo_keywords: program?.seo_keywords || "",
+    display_order: program?.display_order || 0,
     image_file: null,
     existing_image: program?.image_url || "",
   });
@@ -389,6 +407,21 @@ const ProgramForm = ({ program, onSubmit, onCancel, isSaving }) => {
             placeholder="annual-music-fest"
             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3"
           />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+            Display Order <span className="text-slate-400 font-normal">(Leave blank for auto-assign)</span>
+          </label>
+          <input
+            type="number"
+            name="display_order"
+            placeholder="e.g. 1, 2, 3..."
+            value={formData.display_order}
+            onChange={handleChange}
+            min="0"
+            className="mt-1 block w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+          />
+          <p className="text-xs text-slate-400 mt-2">Determines the order in which this item appears.</p>
         </div>
         <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700">
@@ -514,6 +547,7 @@ const TeamMemberForm = ({ member, onSubmit, onCancel, isSaving }) => {
   const [formData, setFormData] = useState({
     name: member?.name || "",
     subtitle: member?.subtitle || "",
+    display_order: member?.display_order || 0,
     image_file: null,
     existing_image: member?.image_url || "",
   });
@@ -585,6 +619,21 @@ const TeamMemberForm = ({ member, onSubmit, onCancel, isSaving }) => {
             onChange={handleChange}
             className="mt-1 block w-full border border-gray-300 rounded-md p-3"
           />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+            Display Order <span className="text-slate-400 font-normal">(Leave blank for auto-assign)</span>
+          </label>
+          <input
+            type="number"
+            name="display_order"
+            placeholder="e.g. 1, 2, 3..."
+            value={formData.display_order}
+            onChange={handleChange}
+            min="0"
+            className="mt-1 block w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+          />
+          <p className="text-xs text-slate-400 mt-2">Determines the order in which this item appears.</p>
         </div>
         <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -850,6 +899,9 @@ export default function AdminAbout() {
               Designation
             </th>
             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+              Order
+            </th>
+            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
               Actions
             </th>
           </tr>
@@ -878,6 +930,11 @@ export default function AdminAbout() {
               </td>
               <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">
                 {member.designation}
+              </td>
+              <td className="px-4 py-3 text-center text-sm font-medium">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                  {member.display_order || "—"}
+                </span>
               </td>
               <td className="px-4 py-3 text-center text-sm font-medium space-x-2">
                 <button
@@ -918,6 +975,9 @@ export default function AdminAbout() {
               Description Snippet
             </th>
             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+              Order
+            </th>
+            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
               Actions
             </th>
           </tr>
@@ -950,6 +1010,11 @@ export default function AdminAbout() {
               <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
                 {program.description?.substring(0, 70)}
                 {program.description?.length > 70 ? "..." : ""}
+              </td>
+              <td className="px-4 py-3 text-center text-sm font-medium">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-600 font-bold text-sm">
+                  {program.display_order || "—"}
+                </span>
               </td>
               <td className="px-4 py-3 text-center text-sm font-medium space-x-2">
                 <button
@@ -988,6 +1053,9 @@ export default function AdminAbout() {
               Designation
             </th>
             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+              Order
+            </th>
+            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
               Actions
             </th>
           </tr>
@@ -1016,6 +1084,11 @@ export default function AdminAbout() {
               </td>
               <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">
                 {member.subtitle}
+              </td>
+              <td className="px-4 py-3 text-center text-sm font-medium">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                  {member.display_order || "—"}
+                </span>
               </td>
               <td className="px-4 py-3 text-center text-sm font-medium space-x-2">
                 <button

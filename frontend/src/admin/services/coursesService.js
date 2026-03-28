@@ -15,6 +15,10 @@ const createFormData = (data, isUpdate) => {
   formData.append("seo_title", data.seo_title || "");
   formData.append("seo_description", data.seo_description || "");
   formData.append("seo_keywords", data.seo_keywords || "");
+  
+  if (data.display_order !== undefined && data.display_order !== null && data.display_order !== '') {
+    formData.append("display_order", data.display_order);
+  }
 
   const processedSchedules = (data.schedules || []).map((schedule) => {
     let classDayValue = "";
@@ -53,7 +57,7 @@ export const getAllCourses = async () => {
     const response = await api.get(COURSES_API, { withCredentials: true });
     return response.data;
   } catch (error) {
-    handleError(error);
+    return handleError(error);
   }
 };
 
@@ -65,7 +69,7 @@ export const createCourse = async (data) => {
     });
     return response.data;
   } catch (error) {
-    handleError(error);
+    return handleError(error);
   }
 };
 
@@ -77,7 +81,7 @@ export const updateCourse = async (id, data) => {
     });
     return response.data;
   } catch (error) {
-    handleError(error);
+    return handleError(error);
   }
 };
 
@@ -88,6 +92,6 @@ export const deleteCourse = async (id) => {
     });
     return response.data;
   } catch (error) {
-    handleError(error);
+    return handleError(error);
   }
 };

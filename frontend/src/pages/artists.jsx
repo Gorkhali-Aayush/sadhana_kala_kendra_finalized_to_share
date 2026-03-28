@@ -6,6 +6,9 @@ import Seo from "../components/Seo";
 import PageLoader from "../components/PageLoader";
 import EmptyState from "../components/EmptyState";
 
+const SERVER_BASE_URL = SERVER_ROOT_URL;
+const ARTIST_IMAGE_FALLBACK = "https://via.placeholder.com/300x400?text=Artist+Image";
+
 const Artists = () => {
   const [artistsList, setArtistsList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +32,15 @@ const Artists = () => {
     window.scrollTo(0, 0);
     fetchArtists();
   }, [fetchArtists]);
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return ARTIST_IMAGE_FALLBACK;
+
+    if (/^https?:\/\//i.test(imagePath)) return imagePath;
+
+    const normalizedPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
+    return `${SERVER_BASE_URL}${normalizedPath}`;
+  };
 
   const seoProps = {
     title: "Featured Artists and Alumni | Sadhana Kala Kendra",
@@ -83,38 +95,30 @@ const Artists = () => {
               const cardContent = (
                 <>
                   {/* IMAGE */}
-                  <div className="h-64 overflow-hidden">
+                  <div className="overflow-hidden bg-gray-100">
                     <img
-                      src={
-                        artist.profile_image
-                          ? `${SERVER_ROOT_URL}${artist.profile_image}`
-                          : "placeholder.jpg"
-                      }
+                      src={getImageUrl(artist.profile_image)}
                       alt={artist.full_name}
-                      className="w-full aspect-4/3 object-cover object-top transition-transform duration-500 hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = ARTIST_IMAGE_FALLBACK;
+                      }}
+                      className="w-full h-56 object-contain transition-transform duration-500 group-hover:scale-110"
                     />
                   </div>
 
                   {/* CONTENT */}
-                  <div className="p-6">
-                    <h3 className="text-2xl font-bold mb-1 text-[#0f0f50] text-center font-['Inter']">
+                  <div className="p-8">
+                    <h3 className="text-2xl font-semibold text-[#191938] mb-3 text-center font-['Playfair Display']">
                       {artist.full_name}
                     </h3>
 
                     {artist.stage_name && (
-                      <p className="text-red-600 font-semibold mb-4 font-['Roboto']">
+                      <p className="text-gray-600 font-['Roboto'] text-center">
                         {artist.stage_name}
                       </p>
                     )}
-
-                    <p className="text-gray-700 mb-4 font-['Roboto'] text-center line-clamp-3">
-                      {artist.bio}
-                    </p>
-                    {artist.slug ? (
-                      <div className="text-center text-indigo-700 font-bold">
-                        View Details
-                      </div>
-                    ) : null}
                   </div>
                 </>
               );
@@ -123,14 +127,14 @@ const Artists = () => {
                 <Link
                   key={artist.artist_id}
                   to={`/artists/${artist.slug}`}    
-                  className="block bg-white border border-gray-200 p-0 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-1 overflow-hidden text-left"
+                  className="group block bg-white rounded-2xl shadow-md hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 overflow-hidden text-left"
                 >
                   {cardContent}
                 </Link>
               ) : (
                 <div
                   key={artist.artist_id}
-                  className="bg-white border border-gray-200 p-0 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-1 overflow-hidden text-left"
+                  className="group bg-white rounded-2xl shadow-md hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 overflow-hidden text-left"
                 >
                   {cardContent}
                 </div>

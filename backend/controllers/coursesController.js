@@ -3,6 +3,7 @@ import path from "path";
 import CoursesModel from "../models/coursesModel.js";
 import { logAdminAction } from "../utils/auditLogger.js"; 
 import { slugify } from "../utils/slug.js";
+import { validateDisplayOrder } from "../utils/displayOrderValidator.js";
 
 class CoursesController {
     static normalizePrice(priceValue) {
@@ -58,7 +59,7 @@ class CoursesController {
 
     static async create(req, res, next) {
         try {
-            const { title, description, level, price, teacher_name, schedules, slug, seo_title, seo_description, seo_keywords } = req.body;
+            const { title, description, level, price, teacher_name, schedules, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
             // 🔑 FIX: Use req.file.filename to save only the filename, prepending the public path
             const image_url = req.file ? `/uploads/${req.file.filename}` : null; 
             const normalizedSlug = slugify(slug || title);
@@ -72,6 +73,26 @@ class CoursesController {
             if (normalizedPrice?.invalid) {
                 if (req.file) await CoursesController.removeFile(req.file.path);
                 return res.status(400).json({ message: "Course price must be a valid non-negative number" });
+            }
+
+            // Convert display_order to number if provided
+            const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+              ? parseInt(display_order, 10) 
+              : 0;
+
+            // Validate display_order if provided
+            if (display_order !== undefined && display_order !== null && display_order !== '') {
+                const orderValidation = await validateDisplayOrder('Courses', displayOrderNum, null, 'course_id');
+                if (!orderValidation.isValid) {
+                    if (req.file) await CoursesController.removeFile(req.file.path);
+                    return res.status(409).json({
+                        success: false,
+                        warning: orderValidation.warning,
+                        suggestion: orderValidation.suggestion,
+                        nextAvailable: orderValidation.nextAvailable,
+                        conflictingCourseId: orderValidation.conflictingId,
+                    });
+                }
             }
             
             // ... (rest of the create logic) ...
@@ -87,6 +108,7 @@ class CoursesController {
                 seo_title,
                 seo_description,
                 seo_keywords,
+                display_order: displayOrderNum,
             });
             await logAdminAction({
                 admin_id: req.admin.admin_id,
@@ -120,7 +142,7 @@ class CoursesController {
     static async update(req, res, next) {
         const courseId = req.params.id;
         try {
-            const { title, description, level, price, teacher_name, schedules, clear_image, slug, seo_title, seo_description, seo_keywords } = req.body;
+            const { title, description, level, price, teacher_name, schedules, clear_image, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
             const normalizedSlug = slugify(slug || title);
             const normalizedPrice = CoursesController.normalizePrice(price);
             
@@ -142,6 +164,35 @@ class CoursesController {
                 if (req.file) await CoursesController.removeFile(req.file.path);
                 return res.status(400).json({ message: "Course price must be a valid non-negative number" });
             }
+
+            // First, get existing course to check if display_order changed
+            const existingCourse = await CoursesModel.getById(courseId);
+            if (!existingCourse) {
+                if (req.file) await CoursesController.removeFile(req.file.path);
+                return res.status(404).json({ message: "Course not found" });
+            }
+
+            // Convert display_order to number if provided
+            const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+              ? parseInt(display_order, 10) 
+              : undefined;
+
+            // Validate display_order if provided and different from current
+            if (displayOrderNum !== undefined) {
+                if (displayOrderNum !== existingCourse.display_order) {
+                    const orderValidation = await validateDisplayOrder('Courses', displayOrderNum, courseId, 'course_id');
+                    if (!orderValidation.isValid) {
+                        if (req.file) await CoursesController.removeFile(req.file.path);
+                        return res.status(409).json({
+                            success: false,
+                            warning: orderValidation.warning,
+                            suggestion: orderValidation.suggestion,
+                            nextAvailable: orderValidation.nextAvailable,
+                            conflictingCourseId: orderValidation.conflictingId,
+                        });
+                    }
+                }
+            }
             
             const oldImagePath = await CoursesModel.update(courseId, {
                 title,
@@ -155,6 +206,7 @@ class CoursesController {
                 seo_title,
                 seo_description,
                 seo_keywords,
+                display_order: displayOrderNum,
             });
 
             if (oldImagePath) {

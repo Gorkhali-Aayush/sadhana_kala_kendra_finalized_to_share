@@ -1,10 +1,13 @@
 import jwt from "jsonwebtoken";
 
 export const adminAuth = (req, res, next) => {
-
     if (!process.env.JWT_SECRET) {
-        throw new Error("JWT_SECRET missing");
+        console.error("FATAL ERROR: JWT_SECRET is not defined. Server cannot authenticate requests.");
+        return res.status(500).json({ 
+            message: "Server configuration error. Please contact administrator." 
+        });
     }
+    
     // First, try to read token from HttpOnly cookie
     let token = req.cookies?.adminToken;
 

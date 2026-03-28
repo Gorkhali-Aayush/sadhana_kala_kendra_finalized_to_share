@@ -25,13 +25,17 @@ class ActivitiesController {
 
     static async create(req, res, next) {
         try {
-            const { title, description, video_url } = req.body;
+            const { title, description, video_url, display_order } = req.body;
 
             if (!title || !video_url) {
                 return res.status(400).json({ message: "Title and video URL are required." });
             }
 
-            const id = await ActivitiesModel.create({ title, description, video_url });
+            const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+                ? parseInt(display_order, 10) 
+                : 0;
+
+            const id = await ActivitiesModel.create({ title, description, video_url, display_order: displayOrderNum });
             await logAdminAction({
                 admin_id: req.admin.admin_id,
                 action: "CREATE",
@@ -48,8 +52,13 @@ class ActivitiesController {
 
     static async update(req, res, next) {
         try {
-            const { title, description, video_url } = req.body;
-            await ActivitiesModel.update(req.params.id, { title, description, video_url });
+            const { title, description, video_url, display_order } = req.body;
+            
+            const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+                ? parseInt(display_order, 10) 
+                : undefined;
+            
+            await ActivitiesModel.update(req.params.id, { title, description, video_url, display_order: displayOrderNum });
 
             await logAdminAction({
                 admin_id: req.admin.admin_id,

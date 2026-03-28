@@ -31,7 +31,8 @@ const OfferDetail = () => {
       try {
         const data = await getOfferById(slug);
         setOffer(data);
-      } catch {
+      } catch (err) {
+        console.error("Error loading offer:", err);
         setError("Offer not found.");
       }
     };

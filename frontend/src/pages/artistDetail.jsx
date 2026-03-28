@@ -22,7 +22,8 @@ const ArtistDetail = () => {
       try {
         const { data } = await api.get(`/artists/${slug}`);
         setArtist(data);
-      } catch {
+      } catch (err) {
+        console.error("Error loading artist:", err);
         setError("Artist not found.");
       }
     };

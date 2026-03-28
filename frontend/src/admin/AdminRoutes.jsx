@@ -12,6 +12,7 @@ import AdminRegister from "../admin/pages/AdminRegister";
 import AdminNews from "../admin/pages/AdminNews";
 import AdminOffers from "../admin/pages/AdminOffers";
 import AdminGallery from "../admin/pages/AdminGallery";
+import AdminProfile from "../admin/pages/AdminProfile";
 import api, { setUnauthorizedRedirectCallback } from "../admin/services/api";
 import PageLoader from "../components/PageLoader";
 
@@ -28,7 +29,7 @@ const AdminRoutes = () => {
         setUnauthorizedRedirectCallback(() => {
             setIsAuthenticated(false);
             setAdminUsername("");
-            navigate("/admin/login", { replace: true });
+            navigate("/server/login", { replace: true });
         });
     }, [navigate]);
 
@@ -36,7 +37,7 @@ const AdminRoutes = () => {
     useEffect(() => {
         const validateSession = async () => {
             try {
-                const response = await api.get("/admin/me");
+                const response = await api.get("/server/me");
                 
                 // ✅ CRITICAL FIX: Verify response has valid data
                 if (response.data && response.data.valid && response.data.username) {
@@ -62,11 +63,11 @@ const AdminRoutes = () => {
 
     const handleLoginSuccess = async () => {
         try {
-            const response = await api.get("/admin/me");
+            const response = await api.get("/server/me");
             if (response.data && response.data.valid && response.data.username) {
                 setAdminUsername(response.data.username);
                 setIsAuthenticated(true);
-                navigate("/admin", { replace: true });
+                navigate("/server", { replace: true });
             }
         } catch (error) {
             console.error("Failed to fetch admin info after login:", error);
@@ -76,7 +77,7 @@ const AdminRoutes = () => {
     const handleLogout = () => {
         setIsAuthenticated(false);
         setAdminUsername("");
-        navigate("/admin/login", { replace: true });
+        navigate("/server/login", { replace: true });
     };
 
     const ProtectedRoute = ({ element }) => {
@@ -85,7 +86,7 @@ const AdminRoutes = () => {
         }
         
         if (!isAuthenticated) {
-            return <Navigate to="/admin/login" replace />;
+            return <Navigate to="/server/login" replace />;
         }
         
         return element;
@@ -99,7 +100,7 @@ const AdminRoutes = () => {
                     loading ? (
                         <PageLoader message="Loading admin panel..." />
                     ) : isAuthenticated ? (
-                        <Navigate to="/admin" replace />
+                        <Navigate to="/server" replace />
                     ) : (
                         <AdminLogin onLoginSuccess={handleLoginSuccess} />
                     )
@@ -118,10 +119,11 @@ const AdminRoutes = () => {
                 <Route path="gallery" element={<ProtectedRoute element={<AdminGallery />} />} />
                 <Route path="teachers" element={<ProtectedRoute element={<AdminTeachers />} />} />
                 <Route path="register" element={<ProtectedRoute element={<AdminRegister />} />} />
+                <Route path="profile" element={<ProtectedRoute element={<AdminProfile adminUsername={adminUsername} />} />} />
 
                 <Route
                     path="*"
-                    element={<Navigate to="/admin" replace />}
+                    element={<Navigate to="/server" replace />}
                 />
             </Route>
         </Routes>

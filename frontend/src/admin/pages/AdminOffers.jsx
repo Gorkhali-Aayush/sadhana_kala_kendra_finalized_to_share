@@ -411,6 +411,7 @@ const AdminOffers = () => {
                     <tr className="bg-slate-50 border-b border-slate-200">
                       <th className="px-5 py-3 text-xs uppercase font-semibold text-slate-600">Title</th>
                       <th className="px-5 py-3 text-xs uppercase font-semibold text-slate-600">Type</th>
+                      <th className="px-5 py-3 text-xs uppercase font-semibold text-slate-600 text-center">Order</th>
                       <th className="px-5 py-3 text-xs uppercase font-semibold text-slate-600">Course</th>
                       <th className="px-5 py-3 text-xs uppercase font-semibold text-slate-600">Discount</th>
                       <th className="px-5 py-3 text-xs uppercase font-semibold text-slate-600">Status</th>
@@ -428,6 +429,11 @@ const AdminOffers = () => {
                         <td className="px-5 py-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${offer.course_id ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
                             {offer.course_id ? "Course" : "Public"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                            {offer.display_order || '—'}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-sm text-slate-600">

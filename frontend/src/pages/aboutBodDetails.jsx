@@ -62,6 +62,7 @@ const AboutBodDetails = () => {
           <img
             src={asImage(bodMember.profile_image)}
             alt={bodMember.name}
+            loading="lazy"
             className="w-40 h-40 rounded-full mx-auto mb-6 object-cover shadow-lg"
           />
         )}

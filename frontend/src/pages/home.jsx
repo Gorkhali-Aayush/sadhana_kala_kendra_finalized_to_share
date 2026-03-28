@@ -352,28 +352,36 @@ const Home = () => {
                     }
                   }}
                 >
-                  <div className="h-64 overflow-hidden">
+                  <div className="h-48 overflow-hidden bg-gray-100">
                     <img
                       src={getImageUrl(artist.profile_image)}
                       alt={artist.full_name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "https://via.placeholder.com/300x400?text=Artist+Image";
+                      }}
                       loading="lazy"
-                      className="w-full aspect-[4/3] object-cover object-top transition-transform duration-500 hover:scale-105"
+                      className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
                     />
                   </div>
-                  <div className="p-6">
-                    {/* Primary Font: Inter */}
-                    <h3 className="text-2xl font-bold mb-1 text-[#0f0f50] text-center font-['Inter']">
+                  <div className="p-6 text-center">
+                    {/* Primary Font: Playfair Display */}
+                    <h3 className="text-2xl font-semibold text-[#191938] mb-2 font-['Playfair Display']">
                       {artist.full_name}
                     </h3>
                     {/* Secondary Font: Roboto */}
-                    <p className="text-red-600 font-semibold mb-4 font-['Roboto']">
+                    <p className="text-gray-600 mb-4 font-['Roboto']">
                       {artist.stage_name}
                     </p>
-                    {/* Secondary Font: Roboto */}
-                    <p className="text-gray-700 mb-4 font-['Roboto'] text-center line-clamp-3">
-                      {artist.bio}
-                    </p>
-                    {/* Primary Font: Inter */}
+                    {artist.slug && (
+                      <Link
+                        to={`/artists/${artist.slug}`}
+                        className="text-indigo-700 hover:text-indigo-900 font-semibold inline-block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Details
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))
@@ -430,20 +438,20 @@ const Home = () => {
                     }
                   }}
                 >
-                  <div className="h-48 overflow-hidden">
+                  <div className="h-48 overflow-hidden bg-gray-100">
                     <img
                       src={getImageUrl(course.image_url)}
                       alt={course.title}
                       loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                      className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
                     />
                   </div>
-                  <div className="p-6">
+                  <div className="p-6 text-center">
                     {/* Primary Font: Inter */}
                     <h3 className="text-2xl font-bold mb-2 text-[#191938] font-['Inter']">
                       {course.title}
                     </h3>
-                    <h3 className="text-2xl font-semibold text-[#191938] mb-3 font-['Playfair Display'] text-center">
+                    <h3 className="text-2xl font-semibold text-[#191938] mb-3 font-['Playfair Display']">
                       {course.course_name} {/* Use course_name from backend */}
                     </h3>
 
@@ -451,6 +459,15 @@ const Home = () => {
                     <p className="text-gray-700 mb-4 font-['Roboto'] line-clamp-3">
                       {course.description}
                     </p>
+                    {course.slug && (
+                      <Link
+                        to={`/courses/${course.slug}`}
+                        className="text-indigo-700 hover:text-indigo-900 font-semibold inline-block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Details
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))
@@ -497,26 +514,47 @@ const Home = () => {
               teachersList.slice(0, 3).map((teacher) => (
                 <div
                   key={teacher.teacher_id}
-                  className="bg-white p-0 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-1 overflow-hidden"
+                  className={`bg-white border border-gray-200 p-0 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-1 overflow-hidden text-left ${teacher.slug ? "cursor-pointer" : ""}`}
+                  onClick={() => teacher.slug && navigate(`/teachers/${teacher.slug}`)}
+                  role={teacher.slug ? "button" : undefined}
+                  tabIndex={teacher.slug ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if (teacher.slug && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      navigate(`/teachers/${teacher.slug}`);
+                    }
+                  }}
                 >
-                  <div className="h-64 overflow-hidden">
+                  <div className="h-48 overflow-hidden bg-gray-100">
                     <img
                       src={getImageUrl(teacher.profile_image)}
                       alt={teacher.full_name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "https://via.placeholder.com/300x400?text=Teacher+Image";
+                      }}
                       loading="lazy"
-                      className="w-full h-56 object-cover object-top transition-transform duration-500 hover:scale-105"
+                      className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
                     />
                   </div>
-                  <div className="p-6">
-                    {/* Primary Font: Inter */}
-                    <h3 className="text-2xl font-bold mb-1 text-[#191938] font-['Inter']">
+                  <div className="p-6 text-center">
+                    {/* Primary Font: Playfair Display */}
+                    <h3 className="text-2xl font-semibold text-[#191938] mb-2 font-['Playfair Display']">
                       {teacher.full_name}
                     </h3>
                     {/* Secondary Font: Roboto */}
-                    <p className="text-gray-700 font-semibold mb-4 font-['Roboto']">
+                    <p className="text-gray-600 mb-4 font-['Roboto']">
                       {teacher.specialization}
                     </p>
-                    {/* Primary Font: Inter */}
+                    {teacher.slug && (
+                      <Link
+                        to={`/teachers/${teacher.slug}`}
+                        className="text-indigo-700 hover:text-indigo-900 font-semibold inline-block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Details
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))

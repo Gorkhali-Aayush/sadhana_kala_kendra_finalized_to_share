@@ -105,6 +105,15 @@ class AdminController {
       if (!updated) {
         return res.status(500).json({ message: "Password update failed" });
       }
+
+      // Log the admin action
+      await logAdminAction({
+        admin_id: adminId,
+        action: "UPDATE",
+        entity: "ADMIN_PASSWORD",
+        entity_id: adminId,
+        ip: req.ip
+      });
       
       res.clearCookie("adminToken", {
         httpOnly: true,
@@ -117,13 +126,6 @@ class AdminController {
     } catch (err) {
       next(err);
     }
-    await logAdminAction({
-  admin_id: req.admin.admin_id,
-  action: "UPDATE",
-  entity: "ADMIN_PASSWORD",
-  entity_id: req.admin.admin_id,
-  ip: req.ip
-});
   }
 }
 

@@ -5,7 +5,7 @@ class ArtistModel {
   // Get all artists
   static async getAll() {
     const [rows] = await db.query(
-      `SELECT * FROM Artists ORDER BY artist_id ASC`
+      `SELECT * FROM Artists ORDER BY display_order ASC, artist_id ASC`
     );
     return rows;
   }
@@ -29,17 +29,17 @@ class ArtistModel {
   }
 
   // Create new artist
-  static async create({ full_name, slug, bio, profile_image, seo_title, seo_description, seo_keywords }) {
+  static async create({ full_name, slug, bio, profile_image, seo_title, seo_description, seo_keywords, display_order }) {
     const [result] = await db.query(
-      `INSERT INTO Artists (full_name, slug, bio, profile_image, seo_title, seo_description, seo_keywords)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [full_name, slug, bio, profile_image, seo_title || null, seo_description || null, seo_keywords || null]
+      `INSERT INTO Artists (full_name, slug, bio, profile_image, seo_title, seo_description, seo_keywords, display_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [full_name, slug, bio, profile_image, seo_title || null, seo_description || null, seo_keywords || null, display_order ?? 0]
     );
     return result.insertId;
   }
 
   // Update artist
-  static async update(artist_id, { full_name, slug, bio, profile_image, seo_title, seo_description, seo_keywords }) {
+  static async update(artist_id, { full_name, slug, bio, profile_image, seo_title, seo_description, seo_keywords, display_order }) {
     const fields = [];
     const values = [];
 
@@ -71,6 +71,11 @@ class ArtistModel {
     if (seo_keywords !== undefined) {
       fields.push("seo_keywords = ?");
       values.push(seo_keywords);
+    }
+
+    if (display_order !== undefined) {
+      fields.push("display_order = ?");
+      values.push(display_order);
     }
 
     // Only update profile_image if a new file was uploaded

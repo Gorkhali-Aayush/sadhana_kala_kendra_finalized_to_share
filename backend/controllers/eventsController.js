@@ -38,7 +38,7 @@ class EventsController {
 
     static async create(req, res, next) {
         try {
-            const { event_name, description, event_date, event_time, venue, organized_by, category, slug, seo_title, seo_description, seo_keywords } = req.body;
+            const { event_name, description, event_date, event_time, venue, organized_by, category, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
             const normalizedSlug = slugify(slug || event_name);
 
             if (!event_name) {
@@ -49,6 +49,10 @@ class EventsController {
             if (category && category !== 'upcoming' && category !== 'past') {
                 return res.status(400).json({ message: "Category must be either 'upcoming' or 'past'." });
             }
+
+            const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+                ? parseInt(display_order, 10) 
+                : 0;
 
             const id = await EventsModel.create({ 
                 event_name, 
@@ -62,6 +66,7 @@ class EventsController {
                 seo_title,
                 seo_description,
                 seo_keywords,
+                display_order: displayOrderNum,
             }); 
             await logAdminAction({
                 admin_id: req.admin.admin_id,
@@ -82,13 +87,17 @@ class EventsController {
 
     static async update(req, res, next) {
         try {
-            const { event_name, description, event_date, event_time, venue, organized_by, category, slug, seo_title, seo_description, seo_keywords } = req.body;
+            const { event_name, description, event_date, event_time, venue, organized_by, category, slug, seo_title, seo_description, seo_keywords, display_order } = req.body;
             const normalizedSlug = slugify(slug || event_name);
 
             // Validate category if provided
             if (category && category !== 'upcoming' && category !== 'past') {
                 return res.status(400).json({ message: "Category must be either 'upcoming' or 'past'." });
             }
+
+            const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+                ? parseInt(display_order, 10) 
+                : undefined;
 
             await EventsModel.update(req.params.id, { 
                 event_name, 
@@ -102,6 +111,7 @@ class EventsController {
                 seo_title,
                 seo_description,
                 seo_keywords,
+                display_order: displayOrderNum,
             });
             await logAdminAction({
                 admin_id: req.admin.admin_id,

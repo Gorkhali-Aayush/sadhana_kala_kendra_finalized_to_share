@@ -26,12 +26,105 @@ const Alert = ({ message, type, onClose }) => (
   </div>
 );
 
+const OrderConflictDialog = ({ conflict, onResolve, onCancel }) => {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [customOrder, setCustomOrder] = useState("");
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in duration-300">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-start gap-3">
+          <div className="text-3xl">⚠️</div>
+          <div>
+            <h2 className="font-bold text-slate-900">Display Order Conflict</h2>
+            <p className="text-sm text-slate-600 mt-1">{conflict?.warning}</p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+            <p className="font-semibold mb-2">💡 Suggestion:</p>
+            <p>{conflict?.suggestion}</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === conflict?.nextAvailable}
+                onChange={() => {
+                  setSelectedOrder(conflict?.nextAvailable);
+                  setCustomOrder("");
+                }}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Use suggested order: {conflict?.nextAvailable}</span>
+                <p className="text-xs text-slate-500">Automatically assign the next available order</p>
+              </span>
+            </label>
+
+            <label className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+              <input
+                type="radio"
+                name="order-choice"
+                checked={selectedOrder === "custom"}
+                onChange={() => setSelectedOrder("custom")}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <span className="ml-3 flex-1">
+                <span className="font-semibold text-slate-900">Enter custom order:</span>
+                <input
+                  type="number"
+                  placeholder="Enter order number"
+                  value={customOrder}
+                  onChange={(e) => setCustomOrder(e.target.value)}
+                  onClick={() => setSelectedOrder("custom")}
+                  className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  min="1"
+                />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
+          <button
+            onClick={onCancel}
+            className="px-6 py-2.5 rounded-xl font-semibold text-slate-600 hover:bg-slate-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (selectedOrder === "custom") {
+                if (!customOrder || customOrder < 1) {
+                  alert("Please enter a valid order number");
+                  return;
+                }
+                onResolve(customOrder);
+              } else {
+                onResolve(selectedOrder);
+              }
+            }}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+          >
+            Proceed
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /** * COMPONENT: ArtistForm */
 const ArtistForm = ({ artist, onSubmit, onCancel, isSaving }) => {
   const [formData, setFormData] = useState({
     full_name: artist?.full_name || "",
     slug: artist?.slug || "",
     bio: artist?.bio || "",
+    display_order: artist?.display_order || 0,
     seo_title: artist?.seo_title || "",
     seo_description: artist?.seo_description || "",
     seo_keywords: artist?.seo_keywords || "",
@@ -120,6 +213,21 @@ const ArtistForm = ({ artist, onSubmit, onCancel, isSaving }) => {
             />
           </div>
           <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+              Display Order <span className="text-slate-400 font-normal">(Leave blank for auto-assign)</span>
+            </label>
+            <input
+              type="number"
+              name="display_order"
+              placeholder="e.g. 1, 2, 3..."
+              value={formData.display_order}
+              onChange={handleChange}
+              min="1"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+            />
+            <p className="text-xs text-slate-400 mt-2">Determines the order in which this artist appears in listings.</p>
+          </div>
+          <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">SEO Title</label>
             <input
               type="text"
@@ -174,6 +282,8 @@ export default function AdminArtist() {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [orderConflict, setOrderConflict] = useState(null);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -197,11 +307,11 @@ export default function AdminArtist() {
     formData.append("full_name", data.full_name);
     formData.append("bio", data.bio || "");
     formData.append("slug", data.slug || "");
+    formData.append("display_order", data.display_order || 0);
     formData.append("seo_title", data.seo_title || "");
     formData.append("seo_description", data.seo_description || "");
     formData.append("seo_keywords", data.seo_keywords || "");
     
-    // Only include profile_image if a new file was uploaded
     if (profileImageFile) {
       formData.append("profile_image", profileImageFile);
     }
@@ -215,6 +325,50 @@ export default function AdminArtist() {
         setMessage("New artist added successfully.");
       }
       setEditingArtist(null);
+      setOrderConflict(null);
+      setPendingFormData(null);
+      fetchData();
+    } catch (err) {
+      if (err?.response?.status === 409 && err?.response?.data?.warning) {
+        setOrderConflict(err.response.data);
+        setPendingFormData({ profileImageFile, ...data });
+        setIsSaving(false);
+        return;
+      }
+      setError(err?.message || "Operation failed.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResolveConflict = async (newOrder) => {
+    if (!pendingFormData) return;
+    setIsSaving(true);
+    setOrderConflict(null);
+    const { profileImageFile, ...data } = pendingFormData;
+    const formData = new FormData();
+    formData.append("full_name", data.full_name);
+    formData.append("bio", data.bio || "");
+    formData.append("slug", data.slug || "");
+    formData.append("display_order", newOrder || 0);
+    formData.append("seo_title", data.seo_title || "");
+    formData.append("seo_description", data.seo_description || "");
+    formData.append("seo_keywords", data.seo_keywords || "");
+
+    if (profileImageFile) {
+      formData.append("profile_image", profileImageFile);
+    }
+
+    try {
+      if (editingArtist?.artist_id) {
+        await updateArtist(editingArtist.artist_id, formData);
+        setMessage("Artist profile updated.");
+      } else {
+        await createArtist(formData);
+        setMessage("New artist added successfully.");
+      }
+      setEditingArtist(null);
+      setPendingFormData(null);
       fetchData();
     } catch (err) {
       setError(err?.message || "Operation failed.");
@@ -236,8 +390,19 @@ export default function AdminArtist() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 text-slate-900">
-      {/* HEADER SECTION */}
-      <div className="bg-white border-b border-slate-200 mb-8">
+      {/* Conflict Dialog */}
+      {orderConflict && (
+        <OrderConflictDialog
+          conflict={orderConflict}
+          onResolve={handleResolveConflict}
+          onCancel={() => {
+            setOrderConflict(null);
+            setPendingFormData(null);
+          }}
+        />
+      )}
+
+      {/* HEADER SECTION */}\n      <div className="bg-white border-b border-slate-200 mb-8">
         <div className="container mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -289,6 +454,7 @@ export default function AdminArtist() {
                   <tr className="bg-slate-50/50 border-b border-slate-200">
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Professional</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Biography Snippet</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Order</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
@@ -312,6 +478,11 @@ export default function AdminArtist() {
                         <p className="text-sm text-slate-500 line-clamp-1 max-w-xs italic">
                           {a.bio || "Not available"}
                         </p>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                          {a.display_order || '—'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">

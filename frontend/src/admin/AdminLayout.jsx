@@ -5,27 +5,27 @@ import api from "./services/api";
 
 const getIconForRoute = (path) => {
     switch (path) {
-        case "/admin":
+        case "/server":
             return LayoutDashboard;
-        case "/admin/about":
+        case "/server/about":
             return Briefcase;
-        case "/admin/courses":
+        case "/server/courses":
             return BookOpen;
-        case "/admin/activities":
+        case "/server/activities":
             return Grid; 
-        case "/admin/artists":
+        case "/server/artists":
             return UserCircle; 
-        case "/admin/events":
+        case "/server/events":
             return Calendar;
-        case "/admin/news":
+        case "/server/news":
             return Image;
-        case "/admin/offers":
+        case "/server/offers":
             return Briefcase;
-        case "/admin/gallery":
+        case "/server/gallery":
             return Image;
-        case "/admin/teachers":
+        case "/server/teachers":
             return Users;
-        case "/admin/register": 
+        case "/server/register": 
             return CheckSquare; 
         default:
             return Shield;
@@ -40,34 +40,34 @@ const AdminLayout = ({ onLogout, adminUsername = "Admin" }) => {
     const handleLogout = async () => {
         try {
             // Call logout endpoint to clear cookie on server
-            await api.post("/admin/logout");
+            await api.post("/server/logout");
 
             // Trigger parent callback if provided
             if (onLogout) onLogout();
             
             // Redirect to login
-            navigate("/admin/login", { replace: true });
+            navigate("/server/login", { replace: true });
         } catch (error) {
             console.error("Logout failed or network error:", error);
             
             // Still logout on client side even if API call fails
             if (onLogout) onLogout();
-            navigate("/admin/login", { replace: true });
+            navigate("/server/login", { replace: true });
         }
     };
 
     const navLinks = [
-        { to: "/admin", label: "Sadhana Dashboard", icon: LayoutDashboard },
-        { to: "/admin/register", label: "Registrations", icon: CheckSquare }, 
-        { to: "/admin/courses", label: "Courses", icon: BookOpen },
-        { to: "/admin/gallery", label: "Gallery", icon: Image },
-        { to: "/admin/teachers", label: "Teachers", icon: Users },
-        { to: "/admin/activities", label: "Activities", icon: Grid },
-        { to: "/admin/artists", label: "Artists", icon: UserCircle },
-        { to: "/admin/events", label: "Events", icon: Calendar },
-        { to: "/admin/news", label: "News", icon: Image },
-        { to: "/admin/offers", label: "Offers", icon: Briefcase },
-        { to: "/admin/about", label: "About", icon: Briefcase },
+        { to: "/server", label: "Sadhana Dashboard", icon: LayoutDashboard },
+        { to: "/server/register", label: "Registrations", icon: CheckSquare }, 
+        { to: "/server/courses", label: "Courses", icon: BookOpen },
+        { to: "/server/gallery", label: "Gallery", icon: Image },
+        { to: "/server/teachers", label: "Teachers", icon: Users },
+        { to: "/server/activities", label: "Activities", icon: Grid },
+        { to: "/server/artists", label: "Artists", icon: UserCircle },
+        { to: "/server/events", label: "Events", icon: Calendar },
+        { to: "/server/news", label: "News", icon: Image },
+        { to: "/server/offers", label: "Offers", icon: Briefcase },
+        { to: "/server/about", label: "About", icon: Briefcase },
     ];
 
     const MenuIcon = sidebarOpen ? X : Menu;
@@ -82,7 +82,7 @@ const AdminLayout = ({ onLogout, adminUsername = "Admin" }) => {
             >
                 
                 <div className="p-5 flex items-center justify-between border-b border-gray-100">
-                    <Link to="/admin" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
+                    <Link to="/server" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
                         <Shield className="text-red-600 text-2xl" />
                         <h1 className="text-xl font-extrabold text-gray-800 tracking-tight">
                             Admin Portal
@@ -102,7 +102,7 @@ const AdminLayout = ({ onLogout, adminUsername = "Admin" }) => {
                     {navLinks.map((link) => {
                         const isActive = 
                             location.pathname === link.to ||
-                            (link.to !== "/admin" && location.pathname.startsWith(link.to));
+                            (link.to !== "/server" && location.pathname.startsWith(link.to));
 
                         const Icon = link.icon; 
                         return (
@@ -152,6 +152,14 @@ const AdminLayout = ({ onLogout, adminUsername = "Admin" }) => {
                             {navLinks.find(link => location.pathname.startsWith(link.to))?.label || "Admin Panel"}
                         </h2>
                     </div>
+
+                    <Link
+                        to="/server/profile"
+                        className="text-gray-600 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition"
+                        title="Admin Profile & Settings"
+                    >
+                        <UserCircle size={24} />
+                    </Link>
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">

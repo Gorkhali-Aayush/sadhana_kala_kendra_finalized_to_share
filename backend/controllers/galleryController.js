@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import GalleryModel from "../models/galleryModel.js";
 import { logAdminAction } from "../utils/auditLogger.js";
+import { validateDisplayOrder } from "../utils/displayOrderValidator.js";
 
 class GalleryController {
   static async removeFile(filePath) {
@@ -38,14 +39,36 @@ class GalleryController {
 
   static async create(req, res, next) {
     try {
-      const { title } = req.body;
+      const { title, display_order } = req.body;
       const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
       if (!image_url) {
         return res.status(400).json({ message: "Gallery image is required" });
       }
 
-      const mediaId = await GalleryModel.create({ title, image_url });
+      // Convert display_order to number if provided
+      const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+        ? parseInt(display_order, 10) 
+        : 0;
+
+      // Validate display_order if provided
+      if (display_order !== undefined && display_order !== null && display_order !== '') {
+        const orderValidation = await validateDisplayOrder('Gallery', displayOrderNum, null, 'media_id');
+        if (!orderValidation.isValid) {
+          if (req.file) {
+            await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+          }
+          return res.status(409).json({
+            success: false,
+            warning: orderValidation.warning,
+            suggestion: orderValidation.suggestion,
+            nextAvailable: orderValidation.nextAvailable,
+            conflictingMediaId: orderValidation.conflictingId,
+          });
+        }
+      }
+
+      const mediaId = await GalleryModel.create({ title, image_url, display_order: displayOrderNum });
 
       await logAdminAction({
         admin_id: req.admin.admin_id,
@@ -67,7 +90,7 @@ class GalleryController {
   static async update(req, res, next) {
     try {
       const mediaId = req.params.id;
-      const { title, clear_image } = req.body;
+      const { title, clear_image, display_order } = req.body;
 
       const existing = await GalleryModel.getById(mediaId);
       if (!existing) {
@@ -77,6 +100,30 @@ class GalleryController {
         return res.status(404).json({ message: "Gallery item not found" });
       }
 
+      // Convert display_order to number if provided
+      const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+        ? parseInt(display_order, 10) 
+        : undefined;
+
+      // Validate display_order if provided and different from current
+      if (displayOrderNum !== undefined) {
+        if (displayOrderNum !== existing.display_order) {
+          const orderValidation = await validateDisplayOrder('Gallery', displayOrderNum, mediaId, 'media_id');
+          if (!orderValidation.isValid) {
+            if (req.file) {
+              await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+            }
+            return res.status(409).json({
+              success: false,
+              warning: orderValidation.warning,
+              suggestion: orderValidation.suggestion,
+              nextAvailable: orderValidation.nextAvailable,
+              conflictingMediaId: orderValidation.conflictingId,
+            });
+          }
+        }
+      }
+
       let nextImage = undefined;
       if (req.file) {
         nextImage = `/uploads/${req.file.filename}`;
@@ -84,7 +131,7 @@ class GalleryController {
         nextImage = null;
       }
 
-      await GalleryModel.update(mediaId, { title, image_url: nextImage });
+      await GalleryModel.update(mediaId, { title, image_url: nextImage, display_order: displayOrderNum });
 
       if (req.file && existing.image_url) {
         await GalleryController.removeFile(existing.image_url);

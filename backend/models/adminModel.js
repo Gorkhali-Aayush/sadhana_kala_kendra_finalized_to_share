@@ -35,7 +35,7 @@ class AdminModel {
 
     static async updatePassword(admin_id, hashedPassword) {
         const [result] = await db.query(
-            `UPDATE admin_user SET password = ?, created_at = CURRENT_TIMESTAMP WHERE admin_id = ?`,
+            `UPDATE admin_user SET password = ? WHERE admin_id = ?`,
             [hashedPassword, admin_id]
         );
         return result.affectedRows > 0;

@@ -69,6 +69,14 @@ class OffersController {
         return res.status(400).json({ message: "Title is required." });
       }
 
+      // Validate discount percentage
+      const discountPercentage = parseOptionalNumber(body.discount_percentage) ?? 0;
+      if (discountPercentage < 0 || discountPercentage > 100) {
+        return res.status(400).json({ 
+          message: "Discount percentage must be between 0 and 100." 
+        });
+      }
+
       const id = await OffersModel.create({
         course_id: parseOptionalNumber(body.course_id),
         title: String(body.title).trim(),
@@ -76,7 +84,7 @@ class OffersController {
         subtitle: toNullableText(body.subtitle),
         description: toNullableText(body.description),
         image_url: imageFile ? `/uploads/${imageFile.filename}` : toNullableText(body.image_url),
-        discount_percentage: parseOptionalNumber(body.discount_percentage) ?? 0,
+        discount_percentage: discountPercentage,
         discount_type: body.discount_type || 'percentage',
         cta_text: toNullableText(body.cta_text),
         cta_link: toNullableText(body.cta_link),

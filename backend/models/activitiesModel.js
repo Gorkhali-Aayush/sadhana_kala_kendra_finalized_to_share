@@ -3,16 +3,16 @@ import db from "../config/db.js";
 class ActivitiesModel {
     static async getAll() {
         const [rows] = await db.query(
-            `SELECT activity_id, title, description, video_url, created_at, updated_at
+            `SELECT activity_id, title, description, video_url, display_order, created_at, updated_at
              FROM activities
-             ORDER BY created_at DESC, activity_id DESC`
+             ORDER BY display_order ASC, created_at DESC, activity_id DESC`
         );
         return rows;
     }
 
     static async getById(activityId) {
         const [rows] = await db.query(
-            `SELECT activity_id, title, description, video_url, created_at, updated_at
+            `SELECT activity_id, title, description, video_url, display_order, created_at, updated_at
              FROM activities
              WHERE activity_id = ?`,
             [activityId]
@@ -20,16 +20,16 @@ class ActivitiesModel {
         return rows[0] || null;
     }
 
-    static async create({ title, description, video_url }) {
+    static async create({ title, description, video_url, display_order }) {
         const [result] = await db.query(
-            `INSERT INTO activities (title, description, video_url)
-             VALUES (?, ?, ?)`,
-            [title, description || null, video_url]
+            `INSERT INTO activities (title, description, video_url, display_order)
+             VALUES (?, ?, ?, ?)`,
+            [title, description || null, video_url, display_order || 0]
         );
         return result.insertId;
     }
 
-    static async update(activityId, { title, description, video_url }) {
+    static async update(activityId, { title, description, video_url, display_order }) {
         const fields = [];
         const values = [];
 
@@ -46,6 +46,11 @@ class ActivitiesModel {
         if (video_url !== undefined) {
             fields.push("video_url = ?");
             values.push(video_url);
+        }
+
+        if (display_order !== undefined) {
+            fields.push("display_order = ?");
+            values.push(display_order);
         }
 
         if (fields.length === 0) return;
