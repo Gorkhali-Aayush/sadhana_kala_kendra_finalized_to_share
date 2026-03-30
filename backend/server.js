@@ -210,7 +210,8 @@ app.use("/api/server", (req, res, next) => {
   next();
 });
 
-// Routesapp.use("/api/about", aboutRoutes);
+//Routes
+app.use("/api/about", aboutRoutes);
 app.use("/api/teachers", teachersRoutes);
 app.use("/api/courses", coursesRoutes);
 app.use("/api/artists", artistRoutes);
