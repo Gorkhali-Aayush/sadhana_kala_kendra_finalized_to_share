@@ -11,8 +11,8 @@
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
+    connectionLimit: 20,  // Increased from 10 to handle more concurrent requests
+    queueLimit: 0,        // No queue limit - monitor in production
   });
   
   if (process.env.NODE_ENV !== "production") {

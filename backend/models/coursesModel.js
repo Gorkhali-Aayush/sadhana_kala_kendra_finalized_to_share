@@ -1,16 +1,23 @@
 import db from "../config/db.js";
+import { logger } from "../utils/logger.js";
 
 class CoursesModel {
     static async getOffers(courseId) {
-        const [rows] = await db.query(
-            `SELECT * FROM Offers
-            WHERE course_id = ? AND is_active = 1
-            AND (valid_from IS NULL OR valid_from <= CURDATE())
-            AND (valid_to IS NULL OR valid_to >= CURDATE())
-            ORDER BY created_at DESC`,
-            [courseId]
-        );
-        return rows;
+        try {
+            const [rows] = await db.query(
+                `SELECT * FROM Offers
+                WHERE course_id = ? AND is_active = 1
+                AND (valid_from IS NULL OR valid_from <= CURDATE())
+                AND (valid_to IS NULL OR valid_to >= CURDATE())
+                ORDER BY created_at DESC`,
+                [courseId]
+            );
+            return rows || [];
+        } catch (error) {
+            // Log error but don't crash - return empty array as fallback
+            logger.error(`Error fetching offers for course ${courseId}: ${error.message}`);
+            return [];
+        }
     }
 
     static async getAll() {
@@ -53,22 +60,47 @@ class CoursesModel {
                 ORDER BY c.display_order ASC, c.created_at ASC
             `);
 
-            // Parse JSON arrays in schedules and fetch offers for each course
-            return Promise.all(courses.map(async course => {
-                const schedules = typeof course.schedules === 'string' 
-                    ? JSON.parse(course.schedules) 
-                    : course.schedules || [];
-                
-                // Fetch offers for this course
-                const offers = await this.getOffers(course.course_id);
-                
-                return {
-                    ...course,
-                    schedules,
-                    offers
-                };
+            // Use Promise.allSettled to handle partial failures gracefully
+            const results = await Promise.allSettled(courses.map(async course => {
+                try {
+                    // Safely parse schedules JSON with error handling
+                    let schedules = [];
+                    if (course.schedules) {
+                        try {
+                            schedules = typeof course.schedules === 'string' 
+                                ? JSON.parse(course.schedules) 
+                                : course.schedules;
+                        } catch (parseError) {
+                            logger.warn(`Failed to parse schedules for course ${course.course_id}: ${parseError.message}`);
+                            schedules = [];
+                        }
+                    }
+                    
+                    // Fetch offers for this course (already has error handling)
+                    const offers = await this.getOffers(course.course_id);
+                    
+                    return {
+                        ...course,
+                        schedules,
+                        offers
+                    };
+                } catch (courseError) {
+                    logger.error(`Error processing course ${course.course_id}: ${courseError.message}`);
+                    // Return course with minimal data rather than failing entire request
+                    return {
+                        ...course,
+                        schedules: [],
+                        offers: []
+                    };
+                }
             }));
+
+            // Filter out any failed promises and map results
+            return results
+                .filter(result => result.status === 'fulfilled')
+                .map(result => result.value);
         } catch (error) {
+            logger.error(`Error fetching all courses: ${error.message}`);
             throw new Error(`Error fetching all courses: ${error.message}`);
         }
     }
@@ -103,17 +135,23 @@ class CoursesModel {
             const course = courses[0];
             if (!course) return null;
 
-            // Parse schedules JSON
-            course.schedules = typeof course.schedules === 'string' 
-                ? JSON.parse(course.schedules) 
-                : course.schedules || [];
+            // Safely parse schedules JSON with error handling
+            try {
+                course.schedules = typeof course.schedules === 'string' 
+                    ? JSON.parse(course.schedules) 
+                    : course.schedules || [];
+            } catch (parseError) {
+                logger.warn(`Failed to parse schedules for course ${course_id}: ${parseError.message}`);
+                course.schedules = [];
+            }
 
-            // Get offers
+            // Get offers (already has error handling)
             const offers = await this.getOffers(course_id);
             course.offers = offers;
 
             return course;
         } catch (error) {
+            logger.error(`Error fetching course by ID ${course_id}: ${error.message}`);
             throw new Error(`Error fetching course by ID: ${error.message}`);
         }
     }
@@ -148,17 +186,23 @@ class CoursesModel {
             const course = courses[0];
             if (!course) return null;
 
-            // Parse schedules JSON
-            course.schedules = typeof course.schedules === 'string' 
-                ? JSON.parse(course.schedules) 
-                : course.schedules || [];
+            // Safely parse schedules JSON with error handling
+            try {
+                course.schedules = typeof course.schedules === 'string' 
+                    ? JSON.parse(course.schedules) 
+                    : course.schedules || [];
+            } catch (parseError) {
+                logger.warn(`Failed to parse schedules for course slug ${slug}: ${parseError.message}`);
+                course.schedules = [];
+            }
 
-            // Get offers
+            // Get offers (already has error handling)
             const offers = await this.getOffers(course.course_id);
             course.offers = offers;
 
             return course;
         } catch (error) {
+            logger.error(`Error fetching course by slug ${slug}: ${error.message}`);
             throw new Error(`Error fetching course by slug: ${error.message}`);
         }
     }
