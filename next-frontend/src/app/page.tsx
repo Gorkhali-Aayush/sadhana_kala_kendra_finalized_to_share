@@ -38,20 +38,31 @@ export default function HomePage() {
 
     const fetchHomeData = async () => {
       try {
-        const [artistsRes, coursesRes, teachersRes, offersRes] = await Promise.all([
-          fetch(getApiUrl('/api/artists'), { cache: 'no-store', signal: abortController.signal }),
-          fetch(getApiUrl('/api/courses'), { cache: 'no-store', signal: abortController.signal }),
-          fetch(getApiUrl('/api/teachers'), { cache: 'no-store', signal: abortController.signal }),
-          fetch(getApiUrl('/api/offers?limit=3'), { cache: 'no-store', signal: abortController.signal }),
+        // Use Promise.allSettled to handle partial failures gracefully
+        const results = await Promise.allSettled([
+          fetch(getApiUrl('/api/artists'), { cache: 'no-store', signal: abortController.signal }).then(r => r.json()),
+          fetch(getApiUrl('/api/courses'), { cache: 'no-store', signal: abortController.signal }).then(r => r.json()),
+          fetch(getApiUrl('/api/teachers'), { cache: 'no-store', signal: abortController.signal }).then(r => r.json()),
+          fetch(getApiUrl('/api/offers?limit=3'), { cache: 'no-store', signal: abortController.signal }).then(r => r.json()),
         ]);
-        const [artists, courses, teachers, offers] = await Promise.all([
-          artistsRes.json(),
-          coursesRes.json(),
-          teachersRes.json(),
-          offersRes.json(),
-        ]);
-        setData({ artists, courses, teachers, offers });
-        setError(null);
+
+        // Extract data from results, using empty arrays as fallback for failed requests
+        const [artistsResult, coursesResult, teachersResult, offersResult] = results;
+        
+        const artists = artistsResult.status === 'fulfilled' ? artistsResult.value : [];
+        const courses = coursesResult.status === 'fulfilled' ? coursesResult.value : [];
+        const teachers = teachersResult.status === 'fulfilled' ? teachersResult.value : [];
+        const offers = offersResult.status === 'fulfilled' ? offersResult.value : [];
+
+        // Only show error if ALL requests failed
+        const allFailed = results.every(result => result.status === 'rejected');
+        
+        if (allFailed) {
+          setError(true);
+        } else {
+          setData({ artists, courses, teachers, offers });
+          setError(null);
+        }
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
           setError(true);
