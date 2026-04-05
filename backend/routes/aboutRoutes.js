@@ -27,15 +27,4 @@ router.post("/team-members", adminAuth, uploadMedia.single("image_url"), AboutCo
 router.put("/team-members/:id", adminAuth, uploadMedia.single("image_url"), AboutController.updateTeamMember);
 router.delete("/team-members/:id", adminAuth, AboutController.deleteTeamMember);
 
-// ======== PROGRAMS ROUTES ========
-// PUBLIC
-router.get("/programs", AboutController.getAllPrograms);
-router.get("/programs/slug/:slug", AboutController.getProgramBySlug);
-router.get("/programs/:id", AboutController.getProgramById);
-
-// ADMIN PROTECTED
-router.post("/programs", adminAuth, uploadMedia.single("image_url"), AboutController.createProgram);
-router.put("/programs/:id", adminAuth, uploadMedia.single("image_url"), AboutController.updateProgram);
-router.delete("/programs/:id", adminAuth, AboutController.deleteProgram);
-
 export default router;

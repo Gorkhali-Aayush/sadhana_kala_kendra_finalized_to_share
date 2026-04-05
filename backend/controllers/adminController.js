@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { validationResult } from "express-validator";
 import { logAdminAction } from "../utils/auditLogger.js"; 
+import { getUserFriendlyError, ERROR_MESSAGES } from "../utils/errorMessages.js";
+
 class AdminController {
   static async login(req, res, next) {
     const errors = validationResult(req);
@@ -76,7 +78,10 @@ class AdminController {
   static async updatePassword(req, res, next) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: errors.array()[0].msg });
+      // Map validation errors to user-friendly messages
+      const errorArray = errors.array();
+      const userMessage = errorArray[0]?.msg || "Please check your password requirements";
+      return res.status(400).json({ message: userMessage });
     }
 
     const { oldPassword, newPassword } = req.body;
@@ -86,14 +91,20 @@ class AdminController {
       const hashedPassword = await AdminModel.getHashedPassword(adminId);
 
       if (!hashedPassword) {
-        return res.status(404).json({ message: "Admin not found" });
+        return res.status(404).json({ message: ERROR_MESSAGES.ADMIN_NOT_FOUND });
       }
 
       const dbHashedPassword = hashedPassword.trim();
       const isMatch = await bcrypt.compare(oldPassword, dbHashedPassword);
 
       if (!isMatch) {
-        return res.status(401).json({ message: "Incorrect current password" });
+        return res.status(401).json({ message: ERROR_MESSAGES.CURRENT_PASSWORD_INCORRECT });
+      }
+
+      // Check if new password is different from old password
+      const isSameAsOld = await bcrypt.compare(newPassword, dbHashedPassword);
+      if (isSameAsOld) {
+        return res.status(400).json({ message: ERROR_MESSAGES.PASSWORD_SAME_AS_OLD });
       }
 
       const newHashedPassword = await bcrypt.hash(newPassword, 10);
@@ -103,7 +114,7 @@ class AdminController {
       );
 
       if (!updated) {
-        return res.status(500).json({ message: "Password update failed" });
+        return res.status(500).json({ message: ERROR_MESSAGES.PASSWORD_UPDATE_FAILED });
       }
 
       // Log the admin action
@@ -122,7 +133,7 @@ class AdminController {
         path: "/",
       });
 
-      res.json({ message: "Password updated successfully" });
+      res.json({ message: "Your password has been updated successfully. Please log in again." });
     } catch (err) {
       next(err);
     }

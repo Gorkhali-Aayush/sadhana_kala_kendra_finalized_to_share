@@ -4,6 +4,7 @@ import CoursesModel from "../models/coursesModel.js";
 import { logAdminAction } from "../utils/auditLogger.js"; 
 import { slugify } from "../utils/slug.js";
 import { validateDisplayOrder } from "../utils/displayOrderValidator.js";
+import { ERROR_MESSAGES, createFieldError, createFieldErrors, slugAlreadyExists } from "../utils/errorMessages.js";
 
 class CoursesController {
     static normalizePrice(priceValue) {
@@ -30,7 +31,7 @@ class CoursesController {
             await fs.unlink(fullPath);
         } catch (err) {
             if (err.code !== 'ENOENT') {
-                console.error(`Error deleting file ${fullPath}:`, err);
+                // Error deleting file
             }
         }
     }
@@ -65,14 +66,28 @@ class CoursesController {
             const normalizedSlug = slugify(slug || title);
             const normalizedPrice = CoursesController.normalizePrice(price);
 
+            // Validate required fields with specific error messages
+            const fieldErrors = [];
+
             if (!title?.trim()) {
-                if (req.file) await CoursesController.removeFile(req.file.path); // Use req.file.path for disk deletion
-                return res.status(400).json({ message: "Course title is required" });
+                fieldErrors.push({ field: "title", message: ERROR_MESSAGES.COURSE_TITLE_REQUIRED });
             }
 
-            if (normalizedPrice?.invalid) {
+            if (!description?.trim()) {
+                fieldErrors.push({ field: "description", message: ERROR_MESSAGES.DESCRIPTION_REQUIRED });
+            }
+
+            if (!level?.trim() || !["Beginner", "Intermediate", "Advanced"].includes(level)) {
+                fieldErrors.push({ field: "level", message: ERROR_MESSAGES.COURSE_LEVEL_REQUIRED });
+            }
+
+            if (normalizedPrice?.invalid || (price === null && price !== undefined && String(price).trim() !== "")) {
+                fieldErrors.push({ field: "price", message: ERROR_MESSAGES.COURSE_PRICE_INVALID });
+            }
+
+            if (fieldErrors.length > 0) {
                 if (req.file) await CoursesController.removeFile(req.file.path);
-                return res.status(400).json({ message: "Course price must be a valid non-negative number" });
+                return res.status(400).json(createFieldErrors(fieldErrors));
             }
 
             // Convert display_order to number if provided
@@ -130,7 +145,7 @@ class CoursesController {
             }
             if (err?.code === "ER_DUP_ENTRY") {
                 if (req.file) await CoursesController.removeFile(req.file.path);
-                return res.status(409).json({ message: "Slug already exists." });
+                return res.status(409).json(slugAlreadyExists("course"));
             }
             if (req.file) {
                 await CoursesController.removeFile(req.file.path); 

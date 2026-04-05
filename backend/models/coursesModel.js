@@ -53,12 +53,20 @@ class CoursesModel {
                 ORDER BY c.display_order ASC, c.created_at ASC
             `);
 
-            // Parse JSON arrays in schedules
-            return courses.map(course => ({
-                ...course,
-                schedules: typeof course.schedules === 'string' 
+            // Parse JSON arrays in schedules and fetch offers for each course
+            return Promise.all(courses.map(async course => {
+                const schedules = typeof course.schedules === 'string' 
                     ? JSON.parse(course.schedules) 
-                    : course.schedules || []
+                    : course.schedules || [];
+                
+                // Fetch offers for this course
+                const offers = await this.getOffers(course.course_id);
+                
+                return {
+                    ...course,
+                    schedules,
+                    offers
+                };
             }));
         } catch (error) {
             throw new Error(`Error fetching all courses: ${error.message}`);

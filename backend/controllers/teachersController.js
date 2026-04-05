@@ -1,18 +1,13 @@
 import TeachersModel from "../models/teachersModel.js";
 import { logAdminAction } from "../utils/auditLogger.js"; 
 import { validateDisplayOrder } from "../utils/displayOrderValidator.js";
+import { getImageUrl } from "../utils/imageHelpers.js";
 import fs from "fs/promises";
 import path from "path";
+import { ERROR_MESSAGES, createFieldError, createFieldErrors, slugAlreadyExists } from "../utils/errorMessages.js";
 
 // Define the root directory where files are stored (must match UPLOAD_DIR in uploadMiddleware)
 const UPLOAD_DIR = "uploads"; 
-
-function getImageUrl(req, dbPath) {
-    if (!dbPath) return null;
-    const baseUrl = `${req.protocol}://${req.get('host')}`; 
-    const normalizedPath = dbPath.startsWith('/') ? dbPath.substring(1) : dbPath;
-    return `${baseUrl}/${normalizedPath}`;
-}
 
 class TeachersController {
     // Utility to safely remove a file with path traversal protection
@@ -49,7 +44,10 @@ class TeachersController {
 
     static async getById(req, res, next) {
         try {
-            let teacher = await TeachersModel.getById(req.params.id);
+            const slugOrId = req.params.slug;
+            const teacher = Number.isFinite(Number(slugOrId))
+                ? await TeachersModel.getById(slugOrId)
+                : await TeachersModel.getBySlug(slugOrId);
             if (!teacher) return res.status(404).json({ message: "Teacher not found" });
             teacher.profile_image = getImageUrl(req, teacher.profile_image);
             res.json(teacher);
@@ -60,12 +58,19 @@ class TeachersController {
 
     static async create(req, res, next) {
         try {
-            const { full_name, specialization, display_order } = req.body;
+            const { full_name, specialization, description, display_order, slug, seo_title, seo_description, seo_keywords } = req.body;
             const profile_image = req.file ? req.file.path.replace(/\\/g, "/") : null;
 
-            if (!full_name) {
+            // Validate required fields with specific error messages
+            const fieldErrors = [];
+
+            if (!full_name?.trim()) {
+                fieldErrors.push({ field: "full_name", message: ERROR_MESSAGES.TEACHER_NAME_REQUIRED });
+            }
+
+            if (fieldErrors.length > 0) {
                 if (req.file) await TeachersController.removeFile(profile_image);
-                return res.status(400).json({ message: "Full Name is required" });
+                return res.status(400).json(createFieldErrors(fieldErrors));
             }
 
             // Validate display order
@@ -91,8 +96,13 @@ class TeachersController {
 
             const id = await TeachersModel.create({ 
                 full_name, 
-                specialization, 
+                slug,
+                specialization,
+                description,
                 profile_image,
+                seo_title,
+                seo_description,
+                seo_keywords,
                 display_order: orderValidation.displayOrder
             });
 
@@ -123,7 +133,7 @@ class TeachersController {
     static async update(req, res, next) {
         const teacherId = req.params.id;
         try {
-            const { full_name, specialization, display_order, clear_image } = req.body;
+            const { full_name, specialization, description, display_order, slug, seo_title, seo_description, seo_keywords, clear_image } = req.body;
             let new_image_path = undefined;
 
             if (req.file) {
@@ -163,8 +173,13 @@ class TeachersController {
 
             const oldImagePath = await TeachersModel.update(teacherId, { 
                 full_name, 
-                specialization, 
+                slug,
+                specialization,
+                description,
                 profile_image: new_image_path,
+                seo_title,
+                seo_description,
+                seo_keywords,
                 display_order: finalDisplayOrder
             });
 

@@ -10,12 +10,18 @@ USE sadhana_kala_kendra;
 CREATE TABLE IF NOT EXISTS Teachers (
     teacher_id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
+    slug VARCHAR(255) UNIQUE,
     specialization VARCHAR(100),
+    description TEXT,
     profile_image VARCHAR(255),
+    seo_title VARCHAR(255),
+    seo_description TEXT,
+    seo_keywords VARCHAR(255),
     display_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+    INDEX idx_teachers_slug (slug),
     INDEX idx_teachers_display_order (display_order)
 ) ENGINE=InnoDB;
 
@@ -67,28 +73,35 @@ CREATE TABLE IF NOT EXISTS Courses (
         ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
-
 -- Dependent Tables (Level 2)
 
 CREATE TABLE IF NOT EXISTS Gallery (
-    media_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(100),
+    gallery_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
-    media_type ENUM('Image', 'Video') DEFAULT 'Image',
-    image_url VARCHAR(255),
-    file_url VARCHAR(255),
-    category ENUM('Event', 'Course', 'Activity', 'General') DEFAULT 'General',
-    course_id INT,
+    thumbnail_image_url VARCHAR(255),
     display_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    INDEX idx_gallery_course_id (course_id),
-    INDEX idx_gallery_display_order (display_order),
-    INDEX idx_gallery_category (category),
+    INDEX idx_gallery_slug (slug),
+    INDEX idx_gallery_display_order (display_order)
+) ENGINE=InnoDB;
 
-    FOREIGN KEY (course_id) REFERENCES Courses(course_id)
-        ON UPDATE CASCADE ON DELETE SET NULL
+CREATE TABLE IF NOT EXISTS Gallery_Images (
+    image_id INT AUTO_INCREMENT PRIMARY KEY,
+    gallery_id INT NOT NULL,
+    image_url VARCHAR(255) NOT NULL,
+    display_order INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_gallery_images_gallery_id (gallery_id),
+    INDEX idx_gallery_images_display_order (display_order),
+
+    FOREIGN KEY (gallery_id) REFERENCES Gallery(gallery_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Class_Schedule (
@@ -160,6 +173,7 @@ CREATE TABLE IF NOT EXISTS Events (
     slug VARCHAR(255) UNIQUE,
     category ENUM('upcoming', 'past') DEFAULT 'upcoming',
     description TEXT,
+    rich_content LONGTEXT,
     event_date DATE,
     event_time TIME,
     venue VARCHAR(150),
@@ -214,11 +228,18 @@ CREATE TABLE IF NOT EXISTS News_Resources (
 CREATE TABLE IF NOT EXISTS activities (
     activity_id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255),
+    slug VARCHAR(255) UNIQUE,
     description TEXT,
     video_url VARCHAR(500),
+    seo_title VARCHAR(255),
+    seo_description TEXT,
+    seo_keywords VARCHAR(255),
     display_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_activities_slug (slug),
+    INDEX idx_activities_display_order (display_order)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS Artists (
@@ -262,7 +283,7 @@ CREATE TABLE IF NOT EXISTS Programs (
     program_date DATE,
     title VARCHAR(150),
     slug VARCHAR(255) UNIQUE,
-    description TEXT,
+    rich_content LONGTEXT,
     image_url VARCHAR(255),
     seo_title VARCHAR(255),
     seo_description TEXT,
@@ -271,7 +292,24 @@ CREATE TABLE IF NOT EXISTS Programs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    INDEX idx_programs_slug (slug)
+    INDEX idx_programs_slug (slug),
+    INDEX idx_programs_display_order (display_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS Program_Resources (
+    resource_id INT AUTO_INCREMENT PRIMARY KEY,
+    program_id INT NOT NULL,
+    resource_type ENUM('image', 'youtube'),
+    resource_url VARCHAR(1000),
+    caption VARCHAR(255),
+    sort_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_program_resources_program_id (program_id),
+    INDEX idx_program_resources_sort_order (sort_order),
+
+    FOREIGN KEY (program_id) REFERENCES Programs(program_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS team_members (
@@ -294,3 +332,6 @@ CREATE TABLE IF NOT EXISTS Admin_Audit_Log (
     ip_address VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
+
+
+

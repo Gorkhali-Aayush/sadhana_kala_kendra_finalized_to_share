@@ -4,6 +4,24 @@ import path from "path";
 import { logAdminAction } from "../utils/auditLogger.js"; 
 import { slugify } from "../utils/slug.js";
 
+const toArray = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+  return Array.isArray(value) ? value : [value];
+};
+
+const parseMaybeJsonArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 class AboutController {
     static async removeFile(filePath) {
         if (!filePath) return;
@@ -13,13 +31,14 @@ class AboutController {
             await fs.unlink(fullPath);
         } catch (err) {
             if (err.code !== 'ENOENT') {
-                console.error(`Error deleting file ${fullPath}:`, err);
+                // Error deleting file
             }
         }
     }
 
     static getImagePath(req) {
         if (req.file) return `/uploads/${req.file.filename}`;
+        if (req.files?.image_url?.[0]) return `/uploads/${req.files.image_url[0].filename}`;
         return null;
     }
 
@@ -41,14 +60,7 @@ class AboutController {
         } catch {}
     }
 
-    static async deleteOldProgramImage(id) {
-        try {
-            const existing = await AboutModel.getProgramById(id);
-            if (existing && existing.image_url) {
-                await AboutController.removeFile(existing.image_url);
-            }
-        } catch {}
-    }
+
 
     // ================= BOD CONTROLLERS =================
     static async getAllBOD(req, res) {
@@ -100,7 +112,10 @@ class AboutController {
             res.status(201).json({ message: "BOD member created successfully.", bod_id: newId, ...bodData });
         } catch (error) {
             if (profile_image) await AboutController.removeFile(profile_image);
-            res.status(500).json({ message: "Failed to create BOD member." });
+            res.status(500).json({ 
+                message: "Failed to create BOD member.",
+                details: error?.message || error?.sqlMessage || String(error)
+            });
         }
     }
 
@@ -127,7 +142,10 @@ class AboutController {
         } catch (error) {
             if (newImagePath) await AboutController.removeFile(newImagePath);
             if (error.message.includes("not found")) return res.status(404).json({ message: error.message });
-            res.status(500).json({ message: "Failed to update BOD member." });
+            res.status(500).json({ 
+                message: "Failed to update BOD member.",
+                details: error?.message || error?.sqlMessage || String(error)
+            });
         }
     }
 
@@ -147,8 +165,11 @@ class AboutController {
 
             res.status(200).json({ message: "BOD member deleted successfully." });
         } catch (error) {
-            if (error.message.includes("not found")) return res.status(404).json({ message: error.message });
-            res.status(500).json({ message: "Failed to delete BOD member." });
+            console.error("Error deleting BOD member:", error);
+            res.status(500).json({ 
+                message: "Failed to delete BOD member.",
+                details: error?.message || error?.sqlMessage || String(error)
+            });
         }
     }
 
@@ -191,8 +212,11 @@ class AboutController {
 
             res.status(201).json({ message: "Team member created successfully.", team_member_id: newId, ...data });
         } catch (error) {
-            if (image_url) await AboutController.removeFile(image_url);
-            res.status(500).json({ message: "Failed to create team member." });
+            console.error("Error creating team member:", error);
+            res.status(500).json({ 
+                message: "Failed to create team member.",
+                details: error?.message || error?.sqlMessage || String(error)
+            });
         }
     }
 
@@ -219,7 +243,10 @@ class AboutController {
         } catch (error) {
             if (newImage) await AboutController.removeFile(newImage);
             if (error.message.includes("not found")) return res.status(404).json({ message: error.message });
-            res.status(500).json({ message: "Failed to update team member." });
+            res.status(500).json({ 
+                message: "Failed to update team member.",
+                details: error?.message || error?.sqlMessage || String(error)
+            });
         }
     }
 
@@ -240,131 +267,13 @@ class AboutController {
             res.status(200).json({ message: "Team member deleted successfully." });
         } catch (error) {
             if (error.message.includes("not found")) return res.status(404).json({ message: error.message });
-            res.status(500).json({ message: "Failed to delete team member." });
-        }
-    }
-
-    // ================= PROGRAMS CONTROLLERS =================
-    static async getAllPrograms(req, res) {
-        try {
-            const programs = await AboutModel.getAllPrograms();
-            res.status(200).json(programs);
-        } catch {
-            res.status(500).json({ message: "Failed to fetch programs." });
-        }
-    }
-
-    static async getProgramById(req, res) {
-        try {
-            const program = await AboutModel.getProgramById(req.params.id);
-            if (!program) return res.status(404).json({ message: "Program not found." });
-            res.status(200).json(program);
-        } catch {
-            res.status(500).json({ message: "Failed to fetch program." });
-        }
-    }
-
-    static async getProgramBySlug(req, res) {
-        try {
-            const program = await AboutModel.getProgramBySlug(req.params.slug);
-            if (!program) return res.status(404).json({ message: "Program not found." });
-            res.status(200).json(program);
-        } catch {
-            res.status(500).json({ message: "Failed to fetch program." });
-        }
-    }
-
-    static async createProgram(req, res) {
-        const image_url = AboutController.getImagePath(req);
-        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
-            ? parseInt(req.body.display_order, 10) 
-            : 0;
-        const programData = {
-            ...req.body,
-            slug: slugify(req.body.slug || req.body.title),
-            image_url,
-            display_order: displayOrderNum,
-        };
-        try {
-            const newId = await AboutModel.createProgram(programData);
-
-            await logAdminAction({
-                admin_id: req.admin.admin_id,
-                action: "CREATE",
-                entity: "PROGRAM",
-                entity_id: newId,
-                ip: req.ip
+            res.status(500).json({ 
+                message: "Failed to delete team member.",
+                details: error?.message || error?.sqlMessage || String(error)
             });
-
-            res.status(201).json({ message: "Program created successfully.", program_id: newId, ...programData });
-        } catch (error) {
-            if (error?.code === "ER_DUP_ENTRY") {
-                if (image_url) await AboutController.removeFile(image_url);
-                return res.status(409).json({ message: "Slug already exists." });
-            }
-            if (image_url) await AboutController.removeFile(image_url);
-            res.status(500).json({ message: "Failed to create program." });
         }
     }
 
-    static async updateProgram(req, res) {
-        const { id } = req.params;
-        const newImagePath = AboutController.getImagePath(req);
-        const displayOrderNum = req.body.display_order !== undefined && req.body.display_order !== null && req.body.display_order !== '' 
-            ? parseInt(req.body.display_order, 10) 
-            : undefined;
-        const updateData = {
-            ...req.body,
-            ...(req.body.slug !== undefined || req.body.title !== undefined
-                ? { slug: slugify(req.body.slug || req.body.title) }
-                : {}),
-            ...(newImagePath && { image_url: newImagePath }),
-            ...(displayOrderNum !== undefined && { display_order: displayOrderNum }),
-        };
-        try {
-            if (newImagePath) await AboutController.deleteOldProgramImage(id);
-            await AboutModel.updateProgram(id, updateData);
-
-            await logAdminAction({
-                admin_id: req.admin.admin_id,
-                action: "UPDATE",
-                entity: "PROGRAM",
-                entity_id: id,
-                ip: req.ip
-            });
-
-            res.status(200).json({ message: "Program updated successfully." });
-        } catch (error) {
-            if (error?.code === "ER_DUP_ENTRY") {
-                if (newImagePath) await AboutController.removeFile(newImagePath);
-                return res.status(409).json({ message: "Slug already exists." });
-            }
-            if (newImagePath) await AboutController.removeFile(newImagePath);
-            if (error.message.includes("not found")) return res.status(404).json({ message: error.message });
-            res.status(500).json({ message: "Failed to update program." });
-        }
-    }
-
-    static async deleteProgram(req, res) {
-        const { id } = req.params;
-        try {
-            await AboutController.deleteOldProgramImage(id);
-            await AboutModel.deleteProgram(id);
-
-            await logAdminAction({
-                admin_id: req.admin.admin_id,
-                action: "DELETE",
-                entity: "PROGRAM",
-                entity_id: id,
-                ip: req.ip
-            });
-
-            res.status(200).json({ message: "Program deleted successfully." });
-        } catch (error) {
-            if (error.message.includes("not found")) return res.status(404).json({ message: error.message });
-            res.status(500).json({ message: "Failed to delete program." });
-        }
-    }
 }
 
 export default AboutController;

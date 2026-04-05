@@ -1,6 +1,7 @@
 import NewsModel from "../models/newsModel.js";
 import { logAdminAction } from "../utils/auditLogger.js";
 import { slugify } from "../utils/slug.js";
+import { ERROR_MESSAGES, createFieldErrors, slugAlreadyExists } from "../utils/errorMessages.js";
 
 const toArray = (value) => {
   if (value === undefined || value === null || value === "") return [];
@@ -86,6 +87,9 @@ class NewsController {
       const extraImageFiles = req.files?.extraImages || [];
       const ytLinks = parseMaybeJsonArray(req.body.ytLinks).filter(Boolean);
 
+      console.log("📸 Extra Images:", extraImageFiles.length, extraImageFiles.map(f => f.filename));
+      console.log("🎥 YT Links:", ytLinks);
+
       const normalizedResources = [];
 
       // JSON resources support for non-multipart clients.
@@ -120,6 +124,8 @@ class NewsController {
           sort_order: normalizedResources.length + index + 1,
         });
       });
+
+      console.log("💾 Resources to save:", normalizedResources);
 
       if (normalizedResources.length > 0) {
         await NewsModel.replaceResources(id, normalizedResources);
@@ -203,6 +209,8 @@ class NewsController {
           }));
 
         const extraImageFiles = req.files?.extraImages || [];
+        console.log("📸 Extra Images in update:", extraImageFiles.length, extraImageFiles.map(f => f.filename));
+        
         const uploadedImageResources = extraImageFiles.map((file, index) => ({
           resource_type: "image",
           resource_url: `/uploads/${file.filename}`,
@@ -222,12 +230,17 @@ class NewsController {
               1,
           }));
 
+        console.log("🎥 YT Links in update:", ytLinks.length, ytLinks.map(y => y.resource_url));
+        console.log("✅ Existing images:", existingImagesToKeep.length);
+
         const mergedResources = [
           ...normalizedResources,
           ...existingImagesToKeep,
           ...uploadedImageResources,
           ...ytLinks,
         ];
+
+        console.log("💾 Merged Resources in update:", mergedResources);
 
         await NewsModel.replaceResources(req.params.id, mergedResources);
       }

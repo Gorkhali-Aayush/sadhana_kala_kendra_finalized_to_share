@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { logAdminAction } from "../utils/auditLogger.js"; // Updated import
 import { slugify } from "../utils/slug.js";
+import { getImageUrl } from "../utils/imageHelpers.js";
 
 
 class ArtistController {
@@ -18,16 +19,9 @@ class ArtistController {
       await fs.unlink(fullPath);
     } catch (err) {
       if (err.code !== 'ENOENT') {
-        console.error(`Error deleting file ${fullPath}:`, err);
+        // Error deleting file
       }
     }
-  }
-
-  static getImageUrl(req, dbPath) {
-    if (!dbPath) return null;
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const normalizedPath = dbPath.startsWith('/') ? dbPath.substring(1) : dbPath;
-    return `${baseUrl}/${normalizedPath}`;
   }
 
   // GET all artists
@@ -138,7 +132,6 @@ class ArtistController {
       if (req.file) await ArtistController.removeFile(`/uploads/${req.file.filename}`);
       return res.status(409).json({ message: "Slug already exists." });
     }
-    console.error("Artist update error:", err); 
     if (req.file) await ArtistController.removeFile(`/uploads/${req.file.filename}`);
     next(err);
   }

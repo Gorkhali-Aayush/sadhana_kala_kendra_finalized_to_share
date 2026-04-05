@@ -2,12 +2,12 @@ import fs from "fs/promises";
 import path from "path";
 import GalleryModel from "../models/galleryModel.js";
 import { logAdminAction } from "../utils/auditLogger.js";
-import { validateDisplayOrder } from "../utils/displayOrderValidator.js";
+import { slugify } from "../utils/slug.js";
+import { ERROR_MESSAGES, createFieldErrors, slugAlreadyExists } from "../utils/errorMessages.js";
 
 class GalleryController {
   static async removeFile(filePath) {
     if (!filePath || !filePath.startsWith("/uploads/")) return;
-
     const fullPath = path.join(process.cwd(), filePath);
     try {
       await fs.unlink(fullPath);
@@ -18,67 +18,78 @@ class GalleryController {
     }
   }
 
+  /**
+   * GALLERY COLLECTION ENDPOINTS
+   */
+
+  // GET /api/gallery - Get all gallery collections
   static async getAll(req, res, next) {
     try {
-      const items = await GalleryModel.getAll();
-      res.json(items);
+      const galleries = await GalleryModel.getAll();
+      res.json(galleries);
     } catch (err) {
       next(err);
     }
   }
 
+  // GET /api/gallery/:id - Get gallery collection by ID with all images
   static async getById(req, res, next) {
     try {
-      const item = await GalleryModel.getById(req.params.id);
-      if (!item) return res.status(404).json({ message: "Gallery item not found" });
-      res.json(item);
+      const galleryId = req.params.id;
+      console.log(`[Gallery Controller] Fetching gallery with ID: ${galleryId}`);
+      const gallery = await GalleryModel.getById(galleryId);
+      if (!gallery) {
+        console.log(`[Gallery Controller] Gallery not found for ID: ${galleryId}`);
+        return res.status(404).json({ message: "Gallery not found" });
+      }
+      console.log(`[Gallery Controller] Successfully retrieved gallery with ${gallery.images?.length || 0} images`);
+      res.json(gallery);
     } catch (err) {
+      console.error(`[Gallery Controller] Error in getById: ${err.message}`, err);
       next(err);
     }
   }
 
+  // POST /api/gallery - Create new gallery collection
   static async create(req, res, next) {
     try {
-      const { title, display_order } = req.body;
-      const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+      const { title, description, display_order } = req.body;
+      const thumbnail_image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
-      if (!image_url) {
-        return res.status(400).json({ message: "Gallery image is required" });
+      // Validate required fields with specific error messages
+      const fieldErrors = [];
+
+      if (!title?.trim()) {
+        fieldErrors.push({ field: "title", message: ERROR_MESSAGES.GALLERY_TITLE_REQUIRED });
       }
 
-      // Convert display_order to number if provided
+      if (fieldErrors.length > 0) {
+        if (req.file) await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+        return res.status(400).json(createFieldErrors(fieldErrors));
+      }
+
+      const slug = slugify(title);
       const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
         ? parseInt(display_order, 10) 
         : 0;
 
-      // Validate display_order if provided
-      if (display_order !== undefined && display_order !== null && display_order !== '') {
-        const orderValidation = await validateDisplayOrder('Gallery', displayOrderNum, null, 'media_id');
-        if (!orderValidation.isValid) {
-          if (req.file) {
-            await GalleryController.removeFile(`/uploads/${req.file.filename}`);
-          }
-          return res.status(409).json({
-            success: false,
-            warning: orderValidation.warning,
-            suggestion: orderValidation.suggestion,
-            nextAvailable: orderValidation.nextAvailable,
-            conflictingMediaId: orderValidation.conflictingId,
-          });
-        }
-      }
-
-      const mediaId = await GalleryModel.create({ title, image_url, display_order: displayOrderNum });
+      const galleryId = await GalleryModel.createGallery({
+        title,
+        slug,
+        description: description || null,
+        thumbnail_image_url,
+        display_order: displayOrderNum
+      });
 
       await logAdminAction({
         admin_id: req.admin.admin_id,
         action: "CREATE",
         entity: "GALLERY",
-        entity_id: mediaId,
+        entity_id: galleryId,
         ip: req.ip,
       });
 
-      res.status(201).json({ message: "Gallery item created", media_id: mediaId });
+      res.status(201).json({ message: "Gallery created", gallery_id: galleryId });
     } catch (err) {
       if (req.file) {
         await GalleryController.removeFile(`/uploads/${req.file.filename}`);
@@ -87,76 +98,55 @@ class GalleryController {
     }
   }
 
+  // PUT /api/gallery/:id - Update gallery collection
   static async update(req, res, next) {
     try {
-      const mediaId = req.params.id;
-      const { title, clear_image, display_order } = req.body;
+      const galleryId = req.params.id;
+      const { title, description, display_order } = req.body;
 
-      const existing = await GalleryModel.getById(mediaId);
+      const existing = await GalleryModel.getById(galleryId);
       if (!existing) {
-        if (req.file) {
-          await GalleryController.removeFile(`/uploads/${req.file.filename}`);
-        }
-        return res.status(404).json({ message: "Gallery item not found" });
+        if (req.file) await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+        return res.status(404).json({ message: "Gallery not found" });
       }
 
-      // Convert display_order to number if provided
-      const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
-        ? parseInt(display_order, 10) 
-        : undefined;
-
-      // Validate display_order if provided and different from current
-      if (displayOrderNum !== undefined) {
-        if (displayOrderNum !== existing.display_order) {
-          const orderValidation = await validateDisplayOrder('Gallery', displayOrderNum, mediaId, 'media_id');
-          if (!orderValidation.isValid) {
-            if (req.file) {
-              await GalleryController.removeFile(`/uploads/${req.file.filename}`);
-            }
-            return res.status(409).json({
-              success: false,
-              warning: orderValidation.warning,
-              suggestion: orderValidation.suggestion,
-              nextAvailable: orderValidation.nextAvailable,
-              conflictingMediaId: orderValidation.conflictingId,
-            });
-          }
-        }
-      }
-
-      let nextImage = undefined;
+      let thumbnail_image_url = undefined;
       if (req.file) {
-        nextImage = `/uploads/${req.file.filename}`;
-      } else if (clear_image === "true") {
-        nextImage = null;
+        thumbnail_image_url = `/uploads/${req.file.filename}`;
       }
 
-      await GalleryModel.update(mediaId, { title, image_url: nextImage, display_order: displayOrderNum });
+      const updateData = {};
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description;
+      if (display_order !== undefined) updateData.display_order = parseInt(display_order, 10);
+      if (thumbnail_image_url !== undefined) updateData.thumbnail_image_url = thumbnail_image_url;
 
-      if (req.file && existing.image_url) {
-        await GalleryController.removeFile(existing.image_url);
+      await GalleryModel.updateGallery(galleryId, updateData);
+
+      if (req.file && existing.thumbnail_image_url) {
+        await GalleryController.removeFile(existing.thumbnail_image_url);
       }
 
       await logAdminAction({
         admin_id: req.admin.admin_id,
         action: "UPDATE",
         entity: "GALLERY",
-        entity_id: mediaId,
+        entity_id: galleryId,
         ip: req.ip,
       });
 
-      res.json({ message: "Gallery item updated" });
+      res.json({ message: "Gallery updated" });
     } catch (err) {
-      if (req.file) {
-        await GalleryController.removeFile(`/uploads/${req.file.filename}`);
-      }
+      if (req.file) await GalleryController.removeFile(`/uploads/${req.file.filename}`);
       next(err);
     }
   }
 
+  // DELETE /api/gallery/:id - Delete gallery collection (cascades to images)
   static async delete(req, res, next) {
     try {
-      const imagePath = await GalleryModel.delete(req.params.id);
+      const galleryId = req.params.id;
+      const imagePath = await GalleryModel.deleteGallery(galleryId);
       if (imagePath) {
         await GalleryController.removeFile(imagePath);
       }
@@ -165,11 +155,135 @@ class GalleryController {
         admin_id: req.admin.admin_id,
         action: "DELETE",
         entity: "GALLERY",
-        entity_id: req.params.id,
+        entity_id: galleryId,
         ip: req.ip,
       });
 
-      res.json({ message: "Gallery item deleted" });
+      res.json({ message: "Gallery deleted" });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GALLERY IMAGES ENDPOINTS
+   */
+
+  // POST /api/gallery/:galleryId/images - Add image to gallery
+  static async addImage(req, res, next) {
+    try {
+      const galleryId = req.params.galleryId;
+      const { display_order } = req.body;
+      const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+
+      if (!image_url) {
+        return res.status(400).json({ message: "Image file is required" });
+      }
+
+      const gallery = await GalleryModel.getById(galleryId);
+      if (!gallery) {
+        await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+        return res.status(404).json({ message: "Gallery not found" });
+      }
+
+      const displayOrderNum = display_order !== undefined && display_order !== null && display_order !== '' 
+        ? parseInt(display_order, 10) 
+        : 0;
+
+      const imageId = await GalleryModel.addImage({
+        gallery_id: galleryId,
+        image_url,
+        display_order: displayOrderNum
+      });
+
+      await logAdminAction({
+        admin_id: req.admin.admin_id,
+        action: "CREATE",
+        entity: "GALLERY_IMAGE",
+        entity_id: imageId,
+        ip: req.ip,
+      });
+
+      res.status(201).json({ message: "Image added to gallery", image_id: imageId });
+    } catch (err) {
+      if (req.file) {
+        await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+      }
+      next(err);
+    }
+  }
+
+  // GET /api/gallery/:galleryId/images - Get all images for gallery
+  static async getGalleryImages(req, res, next) {
+    try {
+      const galleryId = req.params.galleryId;
+      const images = await GalleryModel.getGalleryImages(galleryId);
+      res.json(images || []);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // PUT /api/gallery/images/:imageId - Update gallery image
+  static async updateImage(req, res, next) {
+    try {
+      const imageId = req.params.imageId;
+      const { display_order } = req.body;
+
+      const existing = await GalleryModel.getImageById(imageId);
+      if (!existing) {
+        if (req.file) await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+        return res.status(404).json({ message: "Image not found" });
+      }
+
+      let image_url = undefined;
+      if (req.file) {
+        image_url = `/uploads/${req.file.filename}`;
+      }
+
+      const updateData = {};
+      if (display_order !== undefined) updateData.display_order = parseInt(display_order, 10);
+      if (image_url !== undefined) updateData.image_url = image_url;
+
+      await GalleryModel.updateImage(imageId, updateData);
+
+      if (req.file && existing.image_url) {
+        await GalleryController.removeFile(existing.image_url);
+      }
+
+      await logAdminAction({
+        admin_id: req.admin.admin_id,
+        action: "UPDATE",
+        entity: "GALLERY_IMAGE",
+        entity_id: imageId,
+        ip: req.ip,
+      });
+
+      res.json({ message: "Image updated" });
+    } catch (err) {
+      if (req.file) await GalleryController.removeFile(`/uploads/${req.file.filename}`);
+      next(err);
+    }
+  }
+
+  // DELETE /api/gallery/images/:imageId - Delete image from gallery
+  static async deleteImage(req, res, next) {
+    try {
+      const imageId = req.params.imageId;
+      const imagePath = await GalleryModel.deleteImage(imageId);
+      if (imagePath) {
+        await GalleryController.removeFile(imagePath);
+      }
+
+      await logAdminAction({
+        admin_id: req.admin.admin_id,
+        action: "DELETE",
+        entity: "GALLERY_IMAGE",
+        entity_id: imageId,
+        ip: req.ip,
+      });
+
+      res.json({ message: "Image deleted" });
     } catch (err) {
       next(err);
     }

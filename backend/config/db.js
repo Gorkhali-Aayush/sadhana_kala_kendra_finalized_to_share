@@ -16,6 +16,5 @@
   });
   
   if (process.env.NODE_ENV !== "production") {
-  console.log("✅ MySQL pool created successfully");
-}
+  }
   export default db;

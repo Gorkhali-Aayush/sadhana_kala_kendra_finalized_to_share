@@ -13,20 +13,16 @@ const xmlEscape = (value) =>
 
 router.get("/", async (req, res, next) => {
   try {
-    // Get site URL from environment - required in production
-    let siteUrl = process.env.FRONTEND_URL;
+    // Get site URL from environment - REQUIRED in all environments
+    const siteUrl = process.env.FRONTEND_URL;
     
     if (!siteUrl) {
-      // Development fallback
-      if (process.env.NODE_ENV === "production") {
-        return res.status(500).json({
-          error: "FRONTEND_URL environment variable is required in production for sitemap generation"
-        });
-      }
-      siteUrl = "http://localhost:5173";
+      return res.status(500).json({
+        error: "FRONTEND_URL environment variable is required for sitemap generation. Please configure it in your .env file."
+      });
     }
     
-    siteUrl = siteUrl.replace(/\/$/, "");
+    const trimmedUrl = siteUrl.replace(/\/$/, "");
 
     const staticPaths = ["/", "/about", "/courses", "/artists", "/events", "/offers", "/gallery", "/teachers"];
 
@@ -39,14 +35,14 @@ router.get("/", async (req, res, next) => {
     const urls = [];
 
     staticPaths.forEach((path) => {
-      urls.push({ loc: `${siteUrl}${path}`, lastmod: null });
+      urls.push({ loc: `${trimmedUrl}${path}`, lastmod: null });
     });
 
-    courseRows.forEach((item) => urls.push({ loc: `${siteUrl}/courses/${item.slug}`, lastmod: item.updated_at }));
-    eventRows.forEach((item) => urls.push({ loc: `${siteUrl}/events/${item.slug}`, lastmod: item.updated_at }));
-    newsRows.forEach((item) => urls.push({ loc: `${siteUrl}/news/${item.slug}`, lastmod: item.updated_at }));
-    artistRows.forEach((item) => urls.push({ loc: `${siteUrl}/artists/${item.slug}`, lastmod: item.updated_at }));
-    offerRows.forEach((item) => urls.push({ loc: `${siteUrl}/offers/${item.slug}`, lastmod: item.updated_at }));
+    courseRows.forEach((item) => urls.push({ loc: `${trimmedUrl}/courses/${item.slug}`, lastmod: item.updated_at }));
+    eventRows.forEach((item) => urls.push({ loc: `${trimmedUrl}/events/${item.slug}`, lastmod: item.updated_at }));
+    newsRows.forEach((item) => urls.push({ loc: `${trimmedUrl}/news/${item.slug}`, lastmod: item.updated_at }));
+    artistRows.forEach((item) => urls.push({ loc: `${trimmedUrl}/artists/${item.slug}`, lastmod: item.updated_at }));
+    offerRows.forEach((item) => urls.push({ loc: `${trimmedUrl}/offers/${item.slug}`, lastmod: item.updated_at }));
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
       .map(

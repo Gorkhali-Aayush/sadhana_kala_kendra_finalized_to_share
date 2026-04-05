@@ -40,6 +40,19 @@ class AdminModel {
         );
         return result.affectedRows > 0;
     }
+
+    static async getAll() {
+        const [rows] = await db.query(`SELECT admin_id, username FROM admin_user`);
+        return rows;
+    }
+
+    static async delete(admin_id) {
+        const [result] = await db.query(
+            `DELETE FROM admin_user WHERE admin_id = ?`,
+            [admin_id]
+        );
+        return result.affectedRows > 0;
+    }
 }
 
 export default AdminModel;

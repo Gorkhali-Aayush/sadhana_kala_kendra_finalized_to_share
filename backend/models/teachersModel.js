@@ -5,7 +5,7 @@ class TeachersModel {
     static async getAll() {
         try {
             const [rows] = await db.query(`
-                SELECT teacher_id, full_name, specialization, profile_image, display_order
+                SELECT teacher_id, full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order
                 FROM Teachers
                 ORDER BY display_order ASC, created_at ASC
             `);
@@ -21,7 +21,7 @@ class TeachersModel {
         if (!teacher_id) throw new Error("Teacher ID is required");
         try {
             const [rows] = await db.query(`
-                SELECT teacher_id, full_name, specialization, profile_image, display_order
+                SELECT teacher_id, full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order
                 FROM Teachers
                 WHERE teacher_id = ?
             `, [teacher_id]);
@@ -32,17 +32,66 @@ class TeachersModel {
         }
     }
 
+    // Get a teacher by slug (matching full_name or slug column)
+    static async getBySlug(slug) {
+        if (!slug) throw new Error("Teacher slug is required");
+        try {
+            const decodedSlug = decodeURIComponent(slug).toLowerCase();
+            
+            // First, try to find by ID if slug is a number
+            if (Number.isFinite(Number(slug))) {
+                const [rows] = await db.query(`
+                    SELECT teacher_id, full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order
+                    FROM Teachers
+                    WHERE teacher_id = ?
+                `, [Number(slug)]);
+                if (rows[0]) return rows[0];
+            }
+
+            // Try to find by slug column first
+            const [slugRows] = await db.query(`
+                SELECT teacher_id, full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order
+                FROM Teachers
+                WHERE LOWER(slug) = LOWER(?)
+                LIMIT 1
+            `, [slug]);
+            if (slugRows[0]) return slugRows[0];
+
+            // Get all teachers and match by computed slug
+            const [teachers] = await db.query(`
+                SELECT teacher_id, full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order
+                FROM Teachers
+                ORDER BY display_order ASC, created_at ASC
+            `);
+
+            // Find teacher by matching computed slug (same logic as frontend)
+            const teacher = teachers.find(t => {
+                const computedSlug = t.full_name
+                    .toLowerCase()
+                    .trim()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^a-z0-9-]/g, '');
+                return computedSlug === decodedSlug;
+            });
+
+            return teacher || null;
+        } catch (err) {
+            console.error(`Error fetching teacher slug ${slug}:`, err);
+            throw err;
+        }
+    }
+
     // Create a new teacher
-    static async create({ full_name, specialization, profile_image, display_order }) {
+    static async create({ full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order }) {
         if (!full_name || full_name.trim() === "") {
             throw new Error("full_name is required. Please enter the teacher's full name.");
         }
 
         try {
             const [result] = await db.query(`
-                INSERT INTO Teachers (full_name, specialization, profile_image, display_order)
-                VALUES (?, ?, ?, ?)
-            `, [full_name, specialization, profile_image, display_order || 0]);
+                INSERT INTO Teachers (full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [full_name, slug || null, specialization, description || null, profile_image, seo_title || null, seo_description || null, seo_keywords || null, display_order || 0]);
             return result.insertId;
         } catch (err) {
             console.error("Error creating teacher:", err);
@@ -54,7 +103,7 @@ class TeachersModel {
     }
 
     // Update an existing teacher
-    static async update(teacher_id, { full_name, specialization, profile_image, display_order }) {
+    static async update(teacher_id, { full_name, slug, specialization, description, profile_image, seo_title, seo_description, seo_keywords, display_order }) {
         if (!teacher_id) throw new Error("Teacher ID is required for update");
         if (!full_name || full_name.trim() === "") {
             throw new Error("full_name is required. Please enter the teacher's full name.");
@@ -62,15 +111,31 @@ class TeachersModel {
 
         let query = `
             UPDATE Teachers
-            SET full_name = ?, specialization = ?
+            SET full_name = ?, slug = ?, specialization = ?
+            ${description !== undefined ? ', description = ?' : ''}
             ${profile_image !== undefined ? ', profile_image = ?' : ''}
+            ${seo_title !== undefined ? ', seo_title = ?' : ''}
+            ${seo_description !== undefined ? ', seo_description = ?' : ''}
+            ${seo_keywords !== undefined ? ', seo_keywords = ?' : ''}
             ${display_order !== undefined ? ', display_order = ?' : ''}
             WHERE teacher_id = ?
         `;
 
-        const params = [full_name, specialization];
+        const params = [full_name, slug || null, specialization];
+        if (description !== undefined) {
+            params.push(description);
+        }
         if (profile_image !== undefined) {
             params.push(profile_image);
+        }
+        if (seo_title !== undefined) {
+            params.push(seo_title);
+        }
+        if (seo_description !== undefined) {
+            params.push(seo_description);
+        }
+        if (seo_keywords !== undefined) {
+            params.push(seo_keywords);
         }
         if (display_order !== undefined) {
             params.push(display_order);

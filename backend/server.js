@@ -10,6 +10,8 @@ import cookieParser from "cookie-parser";
 import fs from "fs";
 
 import { logger } from "./utils/logger.js";
+import { correlationIdMiddleware, requestLoggingMiddleware } from "./middleware/errorCorrelationMiddleware.js";
+import { getUserFriendlyError } from "./utils/errorMessages.js";
 import aboutRoutes from "./routes/aboutRoutes.js";
 import teachersRoutes from "./routes/teachersRoutes.js";
 import coursesRoutes from "./routes/coursesRoutes.js";
@@ -18,11 +20,11 @@ import eventsRoutes from "./routes/eventsRoutes.js";
 import activitiesRoutes from "./routes/activitiesRoutes.js";
 import newsRoutes from "./routes/newsRoutes.js";
 import offersRoutes from "./routes/offersRoutes.js";
-import programsRoutes from "./routes/programsRoutes.js";
 import sitemapRoutes from "./routes/sitemapRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import registerRoutes from "./routes/registerRoutes.js";
 import galleryRoutes from "./routes/galleryRoutes.js";
+import seoRoutes from "./routes/seoRoutes.js";
 
 // Load environment variables
 dotenv.config();
@@ -53,32 +55,58 @@ const setCorpHeader = (req, res, next) => {
 // Production-ready CORS configuration
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://[::1]:5173",
 ].filter(Boolean); // Remove undefined values
+
+// In development, allow common localhost variants for convenience
+if (process.env.NODE_ENV !== "production") {
+  allowedOrigins.push(
+    // "http://localhost:5173",
+    // "http://127.0.0.1:5173",
+    // "http://[::1]:5173",
+  );
+}
 
 // Helmet configuration with production-ready CSP
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: {
+      maxAge: 31536000, // 1 year in seconds
+      includeSubDomains: true,
+      preload: true,
+    },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "blob:", process.env.FRONTEND_URL || ""].filter(Boolean),
+        connectSrc: ["'self'", process.env.FRONTEND_URL || ""].filter(Boolean),
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
   })
 );
 
-// Content Security Policy - adjust for production domains
-const frontendUrl = process.env.FRONTEND_URL || "";
-app.use(
-    helmet.contentSecurityPolicy({  
-        directives: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", "data:", "blob:", frontendUrl, process.env.API_URL || ""].filter(Boolean),
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        connectSrc: ["'self'", frontendUrl].filter(Boolean),
-        },
-    })
-);
+// HTTPS enforcement middleware (redirect HTTP to HTTPS in production)
+if (process.env.NODE_ENV === "production") {
+  app.use((req, res, next) => {
+    if (req.protocol !== "https" && req.get("x-forwarded-proto") !== "https") {
+      return res.redirect(301, `https://${req.get("host")}${req.url}`);
+    }
+    next();
+  });
+}
 
+// ============ ERROR CORRELATION & REQUEST LOGGING ============
+// Add correlation ID to each request for error tracking
+app.use(correlationIdMiddleware);
+
+// Log all requests with correlation IDs
+if (process.env.LOG_LEVEL !== 'error') {
+  app.use(requestLoggingMiddleware);
+}
 
 // CORS configuration with environment-aware origin handling
 app.use(
@@ -127,12 +155,26 @@ app.use(compression({
 // Trust proxy - important for cPanel/reverse proxy setups
 app.set("trust proxy", 1);
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
-  message: "Too many requests from this IP, please try again after 15 minutes.",
-  standardHeaders: true,
-  legacyHeaders: false,
+// Rate limiter for LOGIN ATTEMPTS ONLY (20 requests per 15 minutes)
+// Auth already protected by: bcrypt password hashing, JWT tokens, input validation,
+// generic error messages, 20-min session expiry, HttpOnly cookies with CSRF protection
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many login attempts, please try again after 15 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Don't count successful logins against limit
+});
+
+// Rate limiter for ADMIN PANEL (50 requests per 15 minutes)
+// Protects admin operations from abuse while allowing public API unrestricted access
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Too many requests from this IP, please try again after 15 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 
@@ -149,68 +191,18 @@ app.use(
 
 
 app.get("/", (req, res) => {
-  res.send("Backend is running!");
-});
-// ============ CACHE CONTROL HEADERS ============
-// Cache public endpoints appropriately to improve performance
-
-// Cache list endpoints for 1 hour
-app.use("/api/courses", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
-  next();
+  res.send("Backend is running!");
 });
 
-app.use("/api/teachers", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
-  next();
-});
 
-app.use("/api/artists", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=86400"); // 1 day
-  next();
-});
-
-app.use("/api/events", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
-  next();
-});
-
-app.use("/api/activities", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
-  next();
-});
-
-// Cache offers for 30 minutes (changes more frequently)
-app.use("/api/offers", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=1800"); // 30 minutes
-  next();
-});
-
-// Cache news for 1 hour
-app.use("/api/news", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=3600"); // 1 hour
-  next();
-});
-
-// Cache gallery for 1 day
-app.use("/api/gallery", (req, res, next) => {
-  res.set("Cache-Control", "public, max-age=86400"); // 1 day
-  next();
-});
-
-// Cache static uploads for 1 day
-app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
-  maxAge: "1d",
-  etag: false
-}));
-
-// Don't cache auth/admin endpoints
 app.use("/api/server", (req, res, next) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
   next();
 });
 
-// Routesapp.use("/api/about", aboutRoutes);
+// ============ PUBLIC API ROUTES (NO RATE LIMITING) ============
+// These are safe to access freely by public users
+app.use("/api/about", aboutRoutes);
 app.use("/api/teachers", teachersRoutes);
 app.use("/api/courses", coursesRoutes);
 app.use("/api/artists", artistRoutes);
@@ -218,13 +210,19 @@ app.use("/api/events", eventsRoutes);
 app.use("/api/activities", activitiesRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/offers", offersRoutes);
-app.use("/api/programs", programsRoutes);
 app.use("/api/gallery", galleryRoutes);
 app.use("/api/gallary", galleryRoutes);
 app.use("/gallery", galleryRoutes);
 app.use("/api/register", registerRoutes);
-app.use("/api/server", limiter, adminRoutes);
+app.use("/api/seo", seoRoutes);
 app.use("/sitemap.xml", sitemapRoutes);
+
+// ============ ADMIN ROUTES (RATE LIMITING APPLIED) ============
+// Login has separate stricter rate limiting
+app.use("/api/server/login", authLimiter);
+
+// All other admin endpoints get general admin rate limiting
+app.use("/api/server", adminLimiter, adminRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Resource not found" });
@@ -268,12 +266,14 @@ app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal server error";
 
-  // Log errors in production
+  // Log errors in production to keep technical details server-side
   if (statusCode >= 500) {
     logger.error(`Error ${statusCode}: ${err.message}`, { stack: err.stack });
   }
 
-  res.status(statusCode).json({ message });
+  // Return user-friendly message to client
+  const userMessage = getUserFriendlyError(message, statusCode);
+  res.status(statusCode).json({ message: userMessage });
 });
 
 // Get port from environment - cPanel usually assigns a specific port

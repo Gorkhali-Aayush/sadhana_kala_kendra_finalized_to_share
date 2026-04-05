@@ -8,7 +8,7 @@ const router = express.Router();
 
 // PUBLIC ROUTES
 router.get("/", TeachersController.getAll);
-router.get("/:id", TeachersController.getById);
+router.get("/:slug", TeachersController.getById);
 
 // ADMIN ROUTES (CRUD)
 router.post("/", adminAuth, uploadMedia.single("profile_image"), TeachersController.create);

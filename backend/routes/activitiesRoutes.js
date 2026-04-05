@@ -5,9 +5,9 @@ import { adminAuth } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.get("/", ActivitiesController.getAll);
-router.get("/:id", ActivitiesController.getById);
+router.get("/:slug", ActivitiesController.getById);
 router.post("/", adminAuth, ActivitiesController.create);
-router.put("/:id", adminAuth, ActivitiesController.update);
-router.delete("/:id", adminAuth, ActivitiesController.delete);
+router.put("/:slug", adminAuth, ActivitiesController.update);
+router.delete("/:slug", adminAuth, ActivitiesController.delete);
 
 export default router;
